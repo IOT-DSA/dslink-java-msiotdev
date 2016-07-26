@@ -1,12 +1,12 @@
-package org.dsa.iot.msiotdev;
+package org.dsa.iot.msiotdev.host;
 
-import com.microsoft.azure.iot.service.exceptions.IotHubException;
-import com.microsoft.azure.iot.service.sdk.Device;
-import com.microsoft.azure.iot.service.sdk.RegistryManager;
 import com.microsoft.azure.iothub.*;
+
 import org.dsa.iot.dslink.node.Node;
+import org.dsa.iot.dslink.provider.LoopProvider;
 import org.dsa.iot.dslink.util.json.EncodingFormat;
 import org.dsa.iot.dslink.util.json.JsonObject;
+import org.dsa.iot.msiotdev.IotLinkHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,26 +37,25 @@ public class IotHostController {
     }
 
     public void init() throws Exception {
-        String deviceId = node.getRoConfig("msiot_device").getString();
-        String connectionString = node.getRoConfig("msiot_conn").getString();
-        RegistryManager registryManager = RegistryManager.createFromConnectionString(connectionString);
+        LoopProvider.getProvider().schedule(() -> {
+            String deviceConnection = node.getRoConfig("msiot_device_conn").getString();
 
-        try {
-            Device device = Device.createFromId(deviceId, null, null);
-            registryManager.addDevice(device);
-        } catch (IotHubException e) {
-            registryManager.getDevice(deviceId);
-        }
-
-        deviceClient = new DeviceClient(connectionString, IotHubClientProtocol.AMQPS);
-        deviceClient.open();
-        deviceClient.setMessageCallback(messageCallback, null);
+            try {
+                deviceClient = new DeviceClient(deviceConnection, IotHubClientProtocol.AMQPS);
+                deviceClient.open();
+                deviceClient.setMessageCallback(messageCallback, null);
+            } catch (Exception e) {
+                LOG.error("Failed to initialize host.", e);
+            }
+        });
     }
 
     public void emit(JsonObject object) {
         byte[] bytes = object.encode(EncodingFormat.MESSAGE_PACK);
         Message msg = new Message(bytes);
-        deviceClient.sendEventAsync(msg, null, null);
+        msg.setExpiryTime(5000);
+        deviceClient.sendEventAsync(msg, (responseStatus, callbackContext) -> {
+        }, null);
     }
 
     public Map<String, HostLister> getLists() {
@@ -73,6 +72,23 @@ public class IotHostController {
         } catch (IOException e) {
             LOG.warn("Failed to destroy device client.", e);
         }
+
+        for (HostLister lister : lists.values()) {
+            boolean isEmpty = false;
+            while (!isEmpty) {
+                isEmpty = lister.onListenerRemoved();
+            }
+        }
+
+        for (HostSubscription sub : subscriptions.values()) {
+            boolean isEmpty = false;
+            while (!isEmpty) {
+                isEmpty = sub.onListenerRemoved();
+            }
+        }
+
+        lists.clear();
+        subscriptions.clear();
     }
 
     public IotLinkHandler getHandler() {

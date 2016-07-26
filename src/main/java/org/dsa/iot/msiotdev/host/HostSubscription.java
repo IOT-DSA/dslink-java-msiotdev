@@ -1,4 +1,4 @@
-package org.dsa.iot.msiotdev;
+package org.dsa.iot.msiotdev.host;
 
 import org.dsa.iot.dslink.node.value.SubscriptionValue;
 import org.dsa.iot.dslink.node.value.ValueUtils;
@@ -68,7 +68,7 @@ public class HostSubscription {
             JsonObject object = new JsonObject();
             object.put("type", "subscribe-state");
             object.put("path", path);
-            object.put("value", ValueUtils.toValue(event.getValue()));
+            object.put("value", ValueUtils.toObject(event.getValue()));
             object.put("timestamp", event.getValue().getTimeStamp());
             return object;
         }
@@ -81,7 +81,7 @@ public class HostSubscription {
             JsonObject object = new JsonObject();
             object.put("type", "subscribe");
             object.put("path", path);
-            object.put("value", ValueUtils.toValue(event.getValue()));
+            object.put("value", ValueUtils.toObject(event.getValue()));
             object.put("timestamp", event.getValue().getTimeStamp());
             controller.emit(object);
         }

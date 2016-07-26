@@ -1,4 +1,4 @@
-package org.dsa.iot.msiotdev;
+package org.dsa.iot.msiotdev.host;
 
 import org.dsa.iot.dslink.node.Node;
 import org.dsa.iot.dslink.node.actions.ActionResult;

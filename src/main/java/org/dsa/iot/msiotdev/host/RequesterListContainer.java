@@ -1,4 +1,4 @@
-package org.dsa.iot.msiotdev;
+package org.dsa.iot.msiotdev.host;
 
 import org.dsa.iot.dslink.DSLink;
 import org.dsa.iot.dslink.methods.requests.ListRequest;
@@ -53,13 +53,10 @@ public class RequesterListContainer {
         public RequesterListEntry(String path) {
             this.path = path;
             this.handlers = new ArrayList<>();
-            this.internalHandler = new Handler<ListResponse>() {
-                @Override
-                public void handle(ListResponse event) {
-                    lastEvent = event;
-                    for (Handler<ListResponse> handler : handlers) {
-                        handler.handle(event);
-                    }
+            this.internalHandler = event -> {
+                lastEvent = event;
+                for (Handler<ListResponse> handler : handlers) {
+                    handler.handle(event);
                 }
             };
         }
@@ -83,10 +80,7 @@ public class RequesterListContainer {
         private void check() {
             if (handlers.isEmpty() && isSubscribed) {
                 isSubscribed = false;
-                requesterLink.getRequester().closeStream(lastRid, new Handler<CloseResponse>() {
-                    @Override
-                    public void handle(CloseResponse event) {
-                    }
+                requesterLink.getRequester().closeStream(lastRid, event -> {
                 });
                 lastEvent = null;
             } else if (!handlers.isEmpty() && !isSubscribed) {

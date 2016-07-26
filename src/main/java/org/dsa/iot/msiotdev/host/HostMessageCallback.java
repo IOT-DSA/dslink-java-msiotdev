@@ -1,4 +1,4 @@
-package org.dsa.iot.msiotdev;
+package org.dsa.iot.msiotdev.host;
 
 import com.microsoft.azure.iothub.IotHubMessageResult;
 import com.microsoft.azure.iothub.Message;

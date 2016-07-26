@@ -8,6 +8,10 @@ import org.dsa.iot.dslink.node.Permission;
 import org.dsa.iot.dslink.node.actions.Action;
 import org.dsa.iot.dslink.node.actions.Parameter;
 import org.dsa.iot.dslink.node.value.ValueType;
+import org.dsa.iot.msiotdev.client.CreateClientAction;
+import org.dsa.iot.msiotdev.client.IotClientController;
+import org.dsa.iot.msiotdev.client.RemoveClientAction;
+import org.dsa.iot.msiotdev.host.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -101,8 +105,8 @@ public class IotLinkHandler extends DSLinkHandler {
         {
             Action action = new Action(Permission.CONFIG, new CreateHostAction(this))
                     .addParameter(new Parameter("name", ValueType.STRING).setPlaceHolder("My Host"))
-                    .addParameter(new Parameter("deviceId", ValueType.STRING).setPlaceHolder("my-broker"))
-                    .addParameter(new Parameter("connection", ValueType.STRING).setPlaceHolder("HostName=myhost.azure-devices.net;SharedAccessKeyName=MyKeyName;SharedAccessKey=MyAccessKey"));
+                    .addParameter(new Parameter("connection", ValueType.STRING).setPlaceHolder("HostName=x;DeviceId=y;SharedAccessKey=z"))
+                    .addParameter(new Parameter("eventConnection", ValueType.STRING).setPlaceHolder("Endpoint=x;SharedAccessKeyName=y;SharedAccessKey=z"));
 
             superRoot
                     .createChild("createHostDevice")
@@ -112,9 +116,25 @@ public class IotLinkHandler extends DSLinkHandler {
                     .build();
         }
 
+        {
+            Action action = new Action(Permission.CONFIG, new CreateClientAction(this))
+                    .addParameter(new Parameter("name", ValueType.STRING).setPlaceHolder("My Client"))
+                    .addParameter(new Parameter("targetDeviceId", ValueType.STRING).setPlaceHolder("my-broker"))
+                    .addParameter(new Parameter("connection", ValueType.STRING).setPlaceHolder("HostName=x;SharedAccessKeyName=y;SharedAccessKey=z"));
+
+            superRoot
+                    .createChild("createClientDevice")
+                    .setDisplayName("Create IoT Client Device")
+                    .setAction(action)
+                    .setSerializable(false)
+                    .build();
+        }
+
         for (Node node : superRoot.getChildren().values()) {
-            if (node.getConfig("host") != null && node.getConfig("host").getBool()) {
+            if (node.getRoConfig("host") != null && node.getRoConfig("host").getBool()) {
                 initializeHostNode(node);
+            } else if (node.getRoConfig("client") != null && node.getRoConfig("client").getBool()) {
+                initializeClientNode(node);
             }
         }
     }
@@ -136,6 +156,26 @@ public class IotLinkHandler extends DSLinkHandler {
             controller.init();
         } catch (Exception e) {
             LOG.error("Failed to initialize host controller.", e);
+        }
+    }
+
+    public void initializeClientNode(Node node) {
+        {
+            Action action = new Action(Permission.CONFIG, new RemoveClientAction(node));
+
+            node
+                    .createChild("remove")
+                    .setDisplayName("Remove")
+                    .setAction(action)
+                    .setSerializable(false)
+                    .build();
+        }
+
+        IotClientController controller = new IotClientController(this, node);
+        try {
+            controller.init();
+        } catch (Exception e) {
+            LOG.error("Failed to initialize client controller.", e);
         }
     }
 }

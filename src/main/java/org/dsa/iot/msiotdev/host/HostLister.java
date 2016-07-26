@@ -1,4 +1,4 @@
-package org.dsa.iot.msiotdev;
+package org.dsa.iot.msiotdev.host;
 
 import org.dsa.iot.dslink.methods.responses.ListResponse;
 import org.dsa.iot.dslink.node.value.ValueUtils;
