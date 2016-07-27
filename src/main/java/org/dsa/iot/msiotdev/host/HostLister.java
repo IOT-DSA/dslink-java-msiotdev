@@ -3,6 +3,7 @@ package org.dsa.iot.msiotdev.host;
 import org.dsa.iot.dslink.methods.responses.ListResponse;
 import org.dsa.iot.dslink.node.value.ValueUtils;
 import org.dsa.iot.dslink.util.handler.Handler;
+import org.dsa.iot.dslink.util.json.JsonArray;
 import org.dsa.iot.dslink.util.json.JsonObject;
 
 public class HostLister {
@@ -65,11 +66,15 @@ public class HostLister {
         ListResponse event = container.getCurrentState(path);
 
         if (event != null) {
-            JsonObject object = new JsonObject();
-            object.put("type", "list-state");
-            object.put("path", path);
-            object.put("state", ValueUtils.toValue(event.getJsonResponse(null).get("updates")));
-            return object;
+            JsonArray updates = event.getJsonResponse(null).get("updates");
+
+            if (updates != null && updates.size() > 0) {
+                JsonObject object = new JsonObject();
+                object.put("type", "list-state");
+                object.put("path", path);
+                object.put("state", updates);
+                return object;
+            }
         }
 
         return null;
@@ -78,11 +83,15 @@ public class HostLister {
     public class UpdateHandler implements Handler<ListResponse> {
         @Override
         public void handle(ListResponse event) {
-            JsonObject object = new JsonObject();
-            object.put("type", "list");
-            object.put("path", path);
-            object.put("state", ValueUtils.toValue(event.getJsonResponse(null).get("updates")));
-            controller.emit(object);
+            JsonArray updates = event.getJsonResponse(null).get("updates");
+
+            if (updates != null && updates.size() > 0) {
+                JsonObject object = new JsonObject();
+                object.put("type", "list");
+                object.put("path", path);
+                object.put("state", updates);
+                controller.emit(object);
+            }
         }
     }
 }

@@ -16,7 +16,6 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.Date;
-import java.util.concurrent.ScheduledFuture;
 
 @SuppressWarnings("Duplicates")
 public class IotClientController {
@@ -26,13 +25,11 @@ public class IotClientController {
     private Node node;
     private ServiceClient serviceClient;
     private EventHubClient eventHubClient;
-    private ClientMessageHandler messageHandler;
     private String deviceId;
 
     public IotClientController(IotLinkHandler handler, Node node) {
         this.handler = handler;
         this.node = node;
-        this.messageHandler = new ClientMessageHandler(this);
     }
 
     public void init() {
@@ -52,9 +49,8 @@ public class IotClientController {
                             PartitionReceiver.START_OF_STREAM
                     );
 
-                    receiver.setReceiveTimeout(Duration.ofSeconds(3));
-                    receiver.setPrefetchCount(999);
-                    receiver.setReceiveHandler(messageHandler);
+                    receiver.setReceiveTimeout(Duration.ofSeconds(1));
+                    receiver.setReceiveHandler(new ClientMessageHandler(IotClientController.this, receiver));
                 }
 
                 IotClientFakeNode brokerNode = new IotClientFakeNode(
@@ -122,11 +118,15 @@ public class IotClientController {
         return current;
     }
 
+    public EventHubClient getEventHubClient() {
+        return eventHubClient;
+    }
+
     public void emit(JsonObject object) {
         Message msg = new Message(object.encode(EncodingFormat.MESSAGE_PACK));
         Date now = new Date();
-        msg.setExpiryTimeUtc(new Date(now.getTime() + 60 * 1000));
-        msg.setDeliveryAcknowledgement(DeliveryAcknowledgement.Full);
+        msg.setExpiryTimeUtc(new Date(now.getTime() + (120 * 1000)));
+        msg.setDeliveryAcknowledgement(DeliveryAcknowledgement.NegativeOnly);
         msg.setCorrelationId(java.util.UUID.randomUUID().toString());
         msg.setUserId(java.util.UUID.randomUUID().toString());
         serviceClient.sendAsync(deviceId, msg);

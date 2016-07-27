@@ -29,6 +29,7 @@ public class HostMessageCallback implements MessageCallback {
             HostSubscription sub = subs.get(path);
             if (sub == null) {
                 sub = new HostSubscription(controller, path);
+                subs.put(path, sub);
             }
             sub.onListenerAdded();
             return IotHubMessageResult.COMPLETE;
@@ -62,6 +63,7 @@ public class HostMessageCallback implements MessageCallback {
             HostLister sub = subs.get(path);
             if (sub == null) {
                 sub = new HostLister(controller, path);
+                subs.put(path, sub);
             }
             sub.onListenerAdded();
             return IotHubMessageResult.COMPLETE;

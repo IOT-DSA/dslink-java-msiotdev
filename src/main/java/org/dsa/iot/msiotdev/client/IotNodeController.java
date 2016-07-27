@@ -102,7 +102,6 @@ public class IotNodeController {
         if (subscribeHandles <= 0) {
             if (hasSubscribeHandle) {
                 closeSubscribeHandles();
-                subscribeHandles = 0;
             }
         } else {
             if (!hasSubscribeHandle) {
@@ -213,7 +212,9 @@ public class IotNodeController {
             }
         }
 
-        IotNodeBuilders.applyMultiChildBuilders((IotClientFakeNode) node, childQueue);
+        if (!childQueue.isEmpty()) {
+            IotNodeBuilders.applyMultiChildBuilders((IotClientFakeNode) node, childQueue);
+        }
     }
 
     public void applyCreatedAttribute(NodeBuilder n, String key, Object mvalue) {
@@ -326,6 +327,7 @@ public class IotNodeController {
 
     public void closeListHandles() {
         hasListHandle = false;
+        listHandles = 0;
 
         JsonObject object = new JsonObject();
         object.put("method", "unlist");
@@ -343,6 +345,7 @@ public class IotNodeController {
 
     public void closeSubscribeHandles() {
         hasSubscribeHandle = false;
+        subscribeHandles = 0;
         JsonObject object = new JsonObject();
         object.put("method", "unsubscribe");
         object.put("path", dsaPath);
