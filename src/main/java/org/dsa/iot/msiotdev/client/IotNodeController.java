@@ -177,7 +177,7 @@ public class IotNodeController {
 
                 //noinspection StatementWithEmptyBody
                 if (key.equals("$is")) {
-                    //node.setProfile(value.getString());
+                    continue;
                 } else if (key.equals("$type")) {
                     node.setValueType(ValueType.toValueType(value.getString()));
                 } else if (key.equals("$name")) {
@@ -192,8 +192,6 @@ public class IotNodeController {
                         Action act = getOrCreateAction(node, Permission.NONE, false);
                         iterateActionMetaData(act, array, true);
                     }
-                } else if (key.equals("$disconnectedTs")) {
-                    System.out.println(new String(root.encodePrettily(EncodingFormat.JSON)));
                 } else if (key.equals("$writable")) {
                     String string = value.getString();
                     node.setWritable(Writable.toEnum(string));
@@ -205,6 +203,8 @@ public class IotNodeController {
                     }
                 } else if (key.equals("$hidden")) {
                     node.setHidden(value.getBool());
+                } else if (key.equals("$name")) {
+                    node.setDisplayName(value.getString());
                 } else if (key.equals("$result")) {
                     String string = value.getString();
                     Action act = getOrCreateAction(node, Permission.NONE, false);
@@ -227,7 +227,6 @@ public class IotNodeController {
                             }
                         }
                         builder.setSerializable(false);
-                        System.out.println("Created " + builder.getChild().getPath());
                         childQueue.add(builder);
                     } else {
                         if (mvalue instanceof JsonObject) {
@@ -279,7 +278,7 @@ public class IotNodeController {
             }
         }
 
-        if (!childQueue.isEmpty()) {
+        if (childQueue.size() > 0) {
             IotNodeBuilders.applyMultiChildBuilders(node, childQueue);
         }
 
@@ -385,9 +384,10 @@ public class IotNodeController {
     }
 
     public void loadNow() {
-        listHandles++;
-        startListHandles();
-        listHandles--;
+        JsonObject object = new JsonObject();
+        object.put("method", "get-list-state");
+        object.put("path", dsaPath);
+        controller.emit(object);
     }
 
     public void startListHandles() {

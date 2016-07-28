@@ -3,7 +3,9 @@ package org.dsa.iot.msiotdev.client;
 import org.dsa.iot.dslink.link.Linkable;
 import org.dsa.iot.dslink.node.Node;
 import org.dsa.iot.dslink.node.NodeBuilder;
+import org.dsa.iot.dslink.node.SubscriptionManager;
 import org.dsa.iot.dslink.node.value.Value;
+import org.dsa.iot.dslink.node.value.ValueType;
 
 public class IotClientFakeNode extends Node {
     private IotClientController controller;
@@ -19,7 +21,7 @@ public class IotClientFakeNode extends Node {
     public Node getChild(String name) {
         Node child = super.getChild(name);
         if (child == null) {
-            child = createChild(name).build();
+            child = createChild(name).getChild();
             IotNodeController nodeController = new IotNodeController(
                     controller,
                     (IotClientFakeNode) child,
@@ -27,6 +29,9 @@ public class IotClientFakeNode extends Node {
             );
 
             nodeController.init();
+            nodeController.loadNow();
+
+            addChild(child);
         }
 
         if (child instanceof IotClientFakeNode) {
@@ -63,37 +68,30 @@ public class IotClientFakeNode extends Node {
 
     @Override
     public Node removeChild(String name) {
-        try {
-            throw new RuntimeException();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
         return super.removeChild(name);
     }
 
     @Override
     public void delete() {
         super.delete();
-
-        try {
-            throw new RuntimeException();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
     }
 
     @Override
     public Value setConfig(String name, Value value) {
-        if (name.equals("disconnectedTs")) {
-            try {
-                throw new RuntimeException();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        if (name.startsWith("$")) {
+            name = name.substring(1);
         }
 
         return super.setConfig(name, value);
+    }
+
+    @Override
+    public Value setAttribute(String name, Value value) {
+        if (name.startsWith("@") && !name.startsWith("@@")) {
+            name = name.substring(1);
+        }
+
+        return super.setAttribute(name, value);
     }
 
     public String getDsaPath() {
@@ -102,5 +100,15 @@ public class IotClientFakeNode extends Node {
 
     public IotClientController getController() {
         return controller;
+    }
+
+    @Override
+    public void clearChildren() {
+        super.clearChildren();
+    }
+
+    @Override
+    public Node addChild(Node node) {
+        return super.addChild(node);
     }
 }

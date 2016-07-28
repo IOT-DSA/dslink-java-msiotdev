@@ -25,5 +25,11 @@ public class IotNodeBuilders {
         }
 
         owner.addChildren(nodes);
+
+        for (Node node : nodes) {
+            if (owner.getCachedChild(node.getName()) == null) {
+                owner.addChild(node);
+            }
+        }
     }
 }

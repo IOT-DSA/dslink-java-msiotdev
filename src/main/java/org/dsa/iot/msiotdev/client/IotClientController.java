@@ -44,65 +44,71 @@ public class IotClientController {
         }
 
         messageHandlers = new ArrayList<>();
-        LoopProvider.getProvider().schedule(() -> {
-            try {
-                deviceId = node.getRoConfig("msiot_device").getString();
-                String connectionString = node.getRoConfig("msiot_conn").getString();
-                String eventHubString = node.getRoConfig("msiot_event_conn").getString();
-                serviceClient = ServiceClient.createFromConnectionString(connectionString, IotHubServiceClientProtocol.AMQPS);
-                serviceClient.open();
-                feedbackReceiver = serviceClient.getFeedbackReceiver(deviceId);
-                feedbackReceiver.open();
 
-                final Container<Runnable> task = new Container<>();
-                task.setValue(() -> {
-                    if (feedbackReceiver == null) {
-                        return;
-                    }
+        try {
+            deviceId = node.getRoConfig("msiot_device").getString();
+            String connectionString = node.getRoConfig("msiot_conn").getString();
+            String eventHubString = node.getRoConfig("msiot_event_conn").getString();
+            serviceClient = ServiceClient.createFromConnectionString(connectionString, IotHubServiceClientProtocol.AMQPS);
+            serviceClient.open();
+            feedbackReceiver = serviceClient.getFeedbackReceiver(deviceId);
+            feedbackReceiver.open();
 
-                    try {
-                        feedbackReceiver.receive();
-                    } catch (IOException | InterruptedException e) {
-                        e.printStackTrace();
-                    }
-
-                    LoopProvider.getProvider().schedule(task.getValue());
-                });
-
-                LoopProvider.getProvider().schedule(task.getValue());
-
-                eventHubClient = EventHubClient.createFromConnectionStringSync(eventHubString);
-
-                for (int i = 0; i < 4; i++) {
-                    PartitionReceiver receiver = eventHubClient.createReceiverSync(
-                            EventHubClient.DEFAULT_CONSUMER_GROUP_NAME,
-                            String.valueOf(i),
-                            Instant.now()
-                    );
-
-                    receiver.setReceiveTimeout(Duration.ofSeconds(1));
-                    ClientMessageHandler handler = new ClientMessageHandler(IotClientController.this, receiver);
-                    messageHandlers.add(handler);
-                    handler.schedule();
+            final Container<Runnable> task = new Container<>();
+            task.setValue(() -> {
+                if (feedbackReceiver == null) {
+                    return;
                 }
 
-                IotClientFakeNode brokerNode = new IotClientFakeNode(
-                        "broker",
-                        node,
-                        node.getLink(),
-                        this,
-                        "/"
+                try {
+                    feedbackReceiver.receive(2000);
+//                    feedbackReceiver.close();
+//                    feedbackReceiver = serviceClient.getFeedbackReceiver(deviceId);
+//                    feedbackReceiver.open();
+                } catch (IOException | InterruptedException e) {
+                    e.printStackTrace();
+                }
+
+                LoopProvider.getProvider().schedule(task.getValue());
+            });
+
+            LoopProvider.getProvider().schedule(task.getValue());
+
+            eventHubClient = EventHubClient.createFromConnectionStringSync(eventHubString);
+
+            for (int i = 0; i < 4; i++) {
+                PartitionReceiver receiver = eventHubClient.createReceiverSync(
+                        EventHubClient.DEFAULT_CONSUMER_GROUP_NAME,
+                        String.valueOf(i),
+                        Instant.now()
                 );
 
-                IotNodeController controller = new IotNodeController(IotClientController.this, brokerNode, "/");
-                controller.init();
-                controller.loadNow();
-
-                node.addChild(brokerNode);
-            } catch (Exception e) {
-                LOG.error("Failed to initialize client controller.", e);
+                receiver.setReceiveTimeout(Duration.ofSeconds(1));
+                ClientMessageHandler handler = new ClientMessageHandler(IotClientController.this, receiver);
+                messageHandlers.add(handler);
+                handler.schedule();
             }
-        });
+
+            IotClientFakeNode brokerNode = new IotClientFakeNode(
+                    "broker",
+                    node,
+                    node.getLink(),
+                    this,
+                    "/"
+            );
+
+            IotNodeController controller = new IotNodeController(IotClientController.this, brokerNode, "/");
+            controller.init();
+            controller.loadNow();
+
+            node.addChild(brokerNode);
+        } catch (Exception e) {
+            LOG.error("Failed to initialize client controller.", e);
+        }
+
+//        LoopProvider.getProvider().schedule(() -> {
+//
+//        });
     }
 
     public void destroy() {
