@@ -3,6 +3,7 @@ package org.dsa.iot.msiotdev.client;
 import org.dsa.iot.dslink.link.Linkable;
 import org.dsa.iot.dslink.node.Node;
 import org.dsa.iot.dslink.node.NodeBuilder;
+import org.dsa.iot.dslink.node.value.Value;
 
 public class IotClientFakeNode extends Node {
     private IotClientController controller;
@@ -21,12 +22,11 @@ public class IotClientFakeNode extends Node {
             child = createChild(name).build();
             IotNodeController nodeController = new IotNodeController(
                     controller,
-                    child,
+                    (IotClientFakeNode) child,
                     ((IotClientFakeNode) child).dsaPath
             );
 
             nodeController.init();
-            nodeController.loadNow();
         }
 
         if (child instanceof IotClientFakeNode) {
@@ -55,6 +55,45 @@ public class IotClientFakeNode extends Node {
             b.setProfile(profile);
         }
         return b;
+    }
+
+    public IotClientFakeNode getCachedChild(String name) {
+        return (IotClientFakeNode) super.getChild(name);
+    }
+
+    @Override
+    public Node removeChild(String name) {
+        try {
+            throw new RuntimeException();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return super.removeChild(name);
+    }
+
+    @Override
+    public void delete() {
+        super.delete();
+
+        try {
+            throw new RuntimeException();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public Value setConfig(String name, Value value) {
+        if (name.equals("disconnectedTs")) {
+            try {
+                throw new RuntimeException();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        return super.setConfig(name, value);
     }
 
     public String getDsaPath() {

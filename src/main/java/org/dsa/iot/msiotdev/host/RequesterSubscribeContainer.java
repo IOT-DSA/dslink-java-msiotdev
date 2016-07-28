@@ -78,10 +78,10 @@ public class RequesterSubscribeContainer {
 
         private void check() {
             if (handlers.isEmpty() && isSubscribed) {
-//                isSubscribed = false;
-//                requesterLink.getRequester().unsubscribe(path, event -> {
-//                });
-//                lastValue = null;
+                isSubscribed = false;
+                requesterLink.getRequester().unsubscribe(path, event -> {
+                });
+                lastValue = null;
             } else if (!handlers.isEmpty() && !isSubscribed) {
                 isSubscribed = true;
                 requesterLink.getRequester().subscribe(path, internalHandler);

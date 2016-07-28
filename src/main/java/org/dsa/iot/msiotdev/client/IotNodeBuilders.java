@@ -13,7 +13,12 @@ public class IotNodeBuilders {
             Node node = builder.getChild();
 
             String go = owner.getDsaPath() + "/" + node.getName();
-            IotNodeController nc = new IotNodeController(owner.getController(), node, go);
+
+            if (go.startsWith("//")) {
+                go = go.substring(1);
+            }
+
+            IotNodeController nc = new IotNodeController(owner.getController(), (IotClientFakeNode) node, go);
             nc.init();
 
             nodes.add(node);

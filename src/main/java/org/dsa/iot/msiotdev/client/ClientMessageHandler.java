@@ -1,10 +1,7 @@
 package org.dsa.iot.msiotdev.client;
 
 import com.microsoft.azure.eventhubs.EventData;
-import com.microsoft.azure.eventhubs.EventHubClient;
-import com.microsoft.azure.eventhubs.PartitionReceiveHandler;
 import com.microsoft.azure.eventhubs.PartitionReceiver;
-import com.microsoft.azure.servicebus.ServiceBusException;
 import org.dsa.iot.dslink.node.Node;
 import org.dsa.iot.dslink.provider.LoopProvider;
 import org.dsa.iot.dslink.util.json.EncodingFormat;
@@ -12,70 +9,81 @@ import org.dsa.iot.dslink.util.json.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class ClientMessageHandler extends PartitionReceiveHandler {
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+public class ClientMessageHandler {
     private static final Logger LOG = LoggerFactory.getLogger(ClientMessageHandler.class);
 
     private IotClientController controller;
     private PartitionReceiver receiver;
-    private int counter = 0;
+    private boolean canceled = false;
 
     public ClientMessageHandler(IotClientController controller, PartitionReceiver receiver) {
-        super(999);
         this.controller = controller;
         this.receiver = receiver;
     }
 
-    public IotClientController getController() {
-        return controller;
-    }
+    public void receive() {
+        // LOG.debug("Attempting to fetch events from partition " + receiver.getPartitionId() + ".");
 
-    @Override
-    public void onReceive(Iterable<EventData> events) {
-        if (events != null) {
-            for (EventData data : events) {
-                counter++;
-
-                JsonObject object = new JsonObject(EncodingFormat.MESSAGE_PACK, data.getBody());
-                String type = object.get("type");
-                String path = object.get("path");
-
-                if (path != null) {
-                    Node node = controller.resolveNode(path);
-
-                    if (node != null) {
-                        IotNodeController nodeController = node.getMetaData();
-
-                        if (nodeController != null) {
-                            nodeController.deliver(type, object);
-                        }
-                    }
+        try {
+            Iterable<EventData> datas = receiver.receive(4).get(
+                    1,
+                    TimeUnit.SECONDS
+            );
+            if (datas != null) {
+                for (EventData data : datas) {
+                    handleEvent(data);
                 }
             }
+        } catch (InterruptedException | ExecutionException e) {
+            LOG.warn("Failed to fetch events from partition " + receiver.getPartitionId(), e);
+        } catch (TimeoutException ignored) {
         }
 
-        if (counter >= 900) {
-            counter = 0;
+        schedule();
+    }
 
-            try {
-                receiver.close().get();
-            } catch (Exception ignored) {}
+    public void schedule() {
+        LoopProvider.getProvider().schedule(() -> {
+            if (!canceled) {
+                receive();
+            }
+        });
+    }
 
-            try {
-                receiver = controller.getEventHubClient().createReceiverSync(
-                        EventHubClient.DEFAULT_CONSUMER_GROUP_NAME,
-                        receiver.getPartitionId(),
-                        PartitionReceiver.START_OF_STREAM
-                );
-            } catch (ServiceBusException e) {
-                LOG.error("Failed to resubscribe.", e);
+    public void handleEvent(EventData data) {
+        try {
+            JsonObject object = new JsonObject(EncodingFormat.MESSAGE_PACK, data.getBody());
+
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Received event " + new String(object.encodePrettily(EncodingFormat.JSON)) + " from hub.");
             }
 
-            LoopProvider.getProvider().schedule(() -> receiver.setReceiveHandler(ClientMessageHandler.this));
+            String type = object.get("type");
+            String path = object.get("path");
+
+            if (path != null) {
+                Node node = controller.resolveNode(path);
+
+                if (node != null) {
+                    IotNodeController nodeController = node.getMetaData();
+
+                    if (nodeController != null) {
+                        nodeController.deliver(type, object);
+                    }
+                } else {
+                    LOG.debug("Failed to find node at " + path);
+                }
+            }
+        } catch (Exception e) {
+            LOG.error("Failed to handle client event.", e);
         }
     }
 
-    @Override
-    public void onError(Throwable error) {
-        LOG.warn("Received error from client message handler.", error);
+    public void disable() {
+        canceled = true;
     }
 }

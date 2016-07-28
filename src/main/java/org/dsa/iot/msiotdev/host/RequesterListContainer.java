@@ -85,7 +85,7 @@ public class RequesterListContainer {
                 lastEvent = null;
             } else if (!handlers.isEmpty() && !isSubscribed) {
                 isSubscribed = true;
-                requesterLink.getRequester().list(new ListRequest(path), internalHandler);
+                lastRid = requesterLink.getRequester().list(new ListRequest(path), internalHandler);
             }
         }
     }

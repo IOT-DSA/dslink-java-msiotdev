@@ -16,13 +16,21 @@ repositories {
     }
 }
 
+repositories {
+    flatDir {
+        dirs 'lib'
+    }
+}
+
 dependencies {
     compile 'org.iot-dsa:dslink:0.16.0-SNAPSHOT'
     compile 'org.iot-dsa:commons:0.16.0-SNAPSHOT'
     compile 'org.iot-dsa:historian:0.16.0-SNAPSHOT'
     compile 'com.microsoft.azure.iothub-java-client:iothub-java-device-client:1.0.9'
     compile 'com.microsoft.azure.iothub-java-client:iothub-java-service-client:1.0.7'
-    compile 'com.microsoft.azure:azure-eventhubs:0.7.5'
+    compile 'org.apache.qpid:proton-j:0.13.0'
+    compile 'org.bouncycastle:bcpkix-jdk15on:1.47'
+    compile name: 'azure-eventhubs-0.7.6-SNAPSHOT'
 }
 
 tasks.withType(FindBugs) {

@@ -5,8 +5,12 @@ import org.dsa.iot.dslink.node.value.ValueUtils;
 import org.dsa.iot.dslink.util.handler.Handler;
 import org.dsa.iot.dslink.util.json.JsonArray;
 import org.dsa.iot.dslink.util.json.JsonObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class HostLister {
+    private static final Logger LOG = LoggerFactory.getLogger(HostLister.class);
+
     private IotHostController controller;
     private String path;
     private boolean isActive = false;
@@ -29,12 +33,16 @@ public class HostLister {
 
     public void activate() {
         isActive = true;
+
+        LOG.debug("Activate list for " + path);
         RequesterListContainer container = controller.getHandler().getListContainer();
         container.subscribe(path, updateHandler);
     }
 
     public void deactivate() {
         isActive = false;
+
+        LOG.debug("Deactivate list for " + path);
 
         RequesterListContainer container = controller.getHandler().getListContainer();
         container.unsubscribe(path, updateHandler);
@@ -83,6 +91,8 @@ public class HostLister {
     public class UpdateHandler implements Handler<ListResponse> {
         @Override
         public void handle(ListResponse event) {
+            LOG.debug("Received list update for " + path);
+
             JsonArray updates = event.getJsonResponse(null).get("updates");
 
             if (updates != null && updates.size() > 0) {

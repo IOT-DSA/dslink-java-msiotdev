@@ -51,10 +51,18 @@ public class IotHostController {
     }
 
     public void emit(JsonObject object) {
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Emitting event " + new String(object.encodePrettily(EncodingFormat.JSON)) + " from device.");
+        }
+
         byte[] bytes = object.encode(EncodingFormat.MESSAGE_PACK);
         Message msg = new Message(bytes);
-        msg.setExpiryTime(5000);
         deviceClient.sendEventAsync(msg, (responseStatus, callbackContext) -> {
+            if (responseStatus != IotHubStatusCode.OK && responseStatus != IotHubStatusCode.OK_EMPTY) {
+                LOG.error("Failed to send event " + new String(object.encodePrettily(EncodingFormat.JSON)) + "to device: " + responseStatus.name());
+            } else {
+                LOG.debug("Sent message to event hub.");
+            }
         }, null);
     }
 

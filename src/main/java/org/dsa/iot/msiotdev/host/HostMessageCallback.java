@@ -5,11 +5,15 @@ import com.microsoft.azure.iothub.Message;
 import com.microsoft.azure.iothub.MessageCallback;
 import org.dsa.iot.dslink.util.json.EncodingFormat;
 import org.dsa.iot.dslink.util.json.JsonObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 
 @SuppressWarnings("Duplicates")
 public class HostMessageCallback implements MessageCallback {
+    private static final Logger LOG = LoggerFactory.getLogger(HostMessageCallback.class);
+
     private final IotHostController controller;
 
     public HostMessageCallback(IotHostController controller) {
@@ -20,6 +24,11 @@ public class HostMessageCallback implements MessageCallback {
     public IotHubMessageResult execute(Message message, Object callbackContext) {
         byte[] bytes = message.getBytes();
         JsonObject object = new JsonObject(EncodingFormat.MESSAGE_PACK, bytes);
+
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Received " + new String(object.encodePrettily(EncodingFormat.JSON)) + " on device.");
+        }
+
         String method = object.get("method");
 
         if ("subscribe".equals(method)) {
@@ -28,6 +37,7 @@ public class HostMessageCallback implements MessageCallback {
             Map<String, HostSubscription> subs = controller.getSubscriptions();
             HostSubscription sub = subs.get(path);
             if (sub == null) {
+                LOG.debug("Creating subscription for " + path);
                 sub = new HostSubscription(controller, path);
                 subs.put(path, sub);
             }
@@ -62,6 +72,7 @@ public class HostMessageCallback implements MessageCallback {
             Map<String, HostLister> subs = controller.getLists();
             HostLister sub = subs.get(path);
             if (sub == null) {
+                LOG.debug("Creating lister for " + path);
                 sub = new HostLister(controller, path);
                 subs.put(path, sub);
             }

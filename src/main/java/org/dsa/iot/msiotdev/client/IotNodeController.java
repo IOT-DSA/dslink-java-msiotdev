@@ -10,26 +10,27 @@ import org.dsa.iot.dslink.node.value.ValuePair;
 import org.dsa.iot.dslink.node.value.ValueType;
 import org.dsa.iot.dslink.node.value.ValueUtils;
 import org.dsa.iot.dslink.util.handler.Handler;
+import org.dsa.iot.dslink.util.json.EncodingFormat;
 import org.dsa.iot.dslink.util.json.JsonArray;
 import org.dsa.iot.dslink.util.json.JsonObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @SuppressWarnings({"Duplicates", "Convert2Lambda"})
 public class IotNodeController {
+    private static final Logger LOG = LoggerFactory.getLogger(IotNodeController.class);
+
     private IotClientController controller;
     private int listHandles = 0;
     private int subscribeHandles = 0;
     private boolean hasListHandle = false;
     private boolean hasSubscribeHandle = false;
-    private Node node;
+    private IotClientFakeNode node;
     private String dsaPath;
 
-    public IotNodeController(IotClientController controller, Node node, String dsaPath) {
+    public IotNodeController(IotClientController controller, IotClientFakeNode node, String dsaPath) {
         this.controller = controller;
         this.node = node;
         this.dsaPath = dsaPath;
@@ -45,6 +46,8 @@ public class IotNodeController {
             return;
         }
         isInitialized = true;
+
+        LOG.debug("Initializing node controller for " + dsaPath);
 
         node.getListener().setOnListHandler(new Handler<Node>() {
             @Override
@@ -110,13 +113,54 @@ public class IotNodeController {
         }
     }
 
-    public void updateListData(JsonArray listArray) {
+    public void updateListData(JsonArray listArray, boolean isState, JsonObject root) {
+        Set<String> toRemove = null;
+
+        if (isState) {
+            toRemove = new HashSet<>();
+
+            if (node.getConfigurations() != null) {
+                for (String key : node.getConfigurations().keySet()) {
+                    toRemove.add("$" + key);
+                }
+            }
+
+            if (node.getChildren() != null) {
+                for (String key : node.getChildren().keySet()) {
+                    toRemove.add(key);
+                }
+            }
+
+            if (node.getAttributes() != null) {
+                for (String key : node.getAttributes().keySet()) {
+                    toRemove.add("@" + key);
+                }
+            }
+
+            if (node.getValueType() != null) {
+                toRemove.add("$type");
+            }
+
+            if (node.isHidden()) {
+                toRemove.add("$hidden");
+            }
+
+            if (node.getDisplayName() != null) {
+                toRemove.add("$name");
+            }
+        }
+
         List<NodeBuilder> childQueue = new ArrayList<>();
         for (Object o : listArray) {
             if (o instanceof JsonArray) {
                 JsonArray m = (JsonArray) o;
 
                 String key = m.get(0);
+
+                if (toRemove != null) {
+                    toRemove.remove(key);
+                }
+
                 Object mvalue;
 
                 if (m.size() > 1) {
@@ -148,6 +192,8 @@ public class IotNodeController {
                         Action act = getOrCreateAction(node, Permission.NONE, false);
                         iterateActionMetaData(act, array, true);
                     }
+                } else if (key.equals("$disconnectedTs")) {
+                    System.out.println(new String(root.encodePrettily(EncodingFormat.JSON)));
                 } else if (key.equals("$writable")) {
                     String string = value.getString();
                     node.setWritable(Writable.toEnum(string));
@@ -170,7 +216,7 @@ public class IotNodeController {
                 } else if (key.startsWith("@")) {
                     node.setAttribute(key.substring(1), value);
                 } else {
-                    Node child = node.getChild(key);
+                    IotClientFakeNode child = node.getCachedChild(key);
 
                     if (child == null) {
                         NodeBuilder builder = node.createChild(key);
@@ -181,6 +227,8 @@ public class IotNodeController {
                             }
                         }
                         builder.setSerializable(false);
+                        System.out.println("Created " + builder.getChild().getPath());
+                        childQueue.add(builder);
                     } else {
                         if (mvalue instanceof JsonObject) {
                             JsonObject co = (JsonObject) mvalue;
@@ -202,19 +250,40 @@ public class IotNodeController {
                     } else if (key.startsWith("@")) {
                         node.removeAttribute(key.substring(1));
                     } else {
-                        try {
-                            node.removeChild(URLEncoder.encode(key, "UTF-8"));
-                        } catch (UnsupportedEncodingException e) {
-                            e.printStackTrace();
-                        }
+                        node.removeChild(key);
+                    }
+
+                    if (toRemove != null) {
+                        toRemove.remove(key);
+                    }
+                }
+            }
+
+            if (toRemove != null) {
+                for (String key : toRemove) {
+                    LOG.debug("Differential Remove: " + key);
+                    if (key.equals("$name")) {
+                        node.setDisplayName(null);
+                    } else if (key.equals("$type")) {
+                        node.setValueType(null);
+                    } else if (key.equals("$hidden")) {
+                        node.setHidden(false);
+                    } else if (key.startsWith("$")) {
+                        node.removeConfig(key.substring(1));
+                    } else if (key.startsWith("@")) {
+                        node.removeAttribute(key.substring(1));
+                    } else {
+                        node.removeChild(key);
                     }
                 }
             }
         }
 
         if (!childQueue.isEmpty()) {
-            IotNodeBuilders.applyMultiChildBuilders((IotClientFakeNode) node, childQueue);
+            IotNodeBuilders.applyMultiChildBuilders(node, childQueue);
         }
+
+        checkListHandles();
     }
 
     public void applyCreatedAttribute(NodeBuilder n, String key, Object mvalue) {
@@ -306,14 +375,19 @@ public class IotNodeController {
     public void updateValueData(JsonArray valueArray) {
         Value val = ValueUtils.toValue(valueArray.get(0), valueArray.get(1));
 
-        if (!val.getType().getRawName().equals(node.getValueType().getRawName())) {
+        if (val != null && !val.getType().getRawName().equals(node.getValueType().getRawName())) {
             node.setValueType(val.getType());
         }
 
         node.setValue(val);
+
+        checkSubscribeHandles();
     }
 
     public void loadNow() {
+        listHandles++;
+        startListHandles();
+        listHandles--;
     }
 
     public void startListHandles() {
@@ -407,7 +481,7 @@ public class IotNodeController {
     public void deliver(String type, JsonObject object) {
         if ("list-state".equals(type) || "list".equals(type)) {
             JsonArray array = object.get("state");
-            updateListData(array);
+            updateListData(array, "list-state".equals(type), object);
         } else if ("subscribe-state".equals(type) || "subscribe".equals(type)) {
             JsonArray array =  new JsonArray();
             array.add(object.get("value"));
