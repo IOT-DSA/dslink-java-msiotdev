@@ -1,7 +1,5 @@
 package org.dsa.iot.msiotdev.host;
 
-import com.microsoft.azure.iothub.*;
-
 import org.dsa.iot.dslink.node.Node;
 import org.dsa.iot.dslink.provider.LoopProvider;
 import org.dsa.iot.dslink.util.json.EncodingFormat;
@@ -12,7 +10,6 @@ import org.dsa.iot.msiotdev.providers.MessageProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 

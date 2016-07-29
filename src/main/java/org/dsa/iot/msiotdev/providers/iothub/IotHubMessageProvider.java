@@ -5,19 +5,12 @@ import com.microsoft.azure.iot.service.sdk.IotHubServiceClientProtocol;
 import com.microsoft.azure.iot.service.sdk.ServiceClient;
 import com.microsoft.azure.iothub.DeviceClient;
 import com.microsoft.azure.iothub.IotHubClientProtocol;
-import com.microsoft.azure.servicebus.ServiceBusException;
 import org.dsa.iot.dslink.util.json.JsonObject;
 import org.dsa.iot.msiotdev.providers.ClientMessageFacade;
 import org.dsa.iot.msiotdev.providers.HostMessageFacade;
 import org.dsa.iot.msiotdev.providers.MessageProvider;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
 
 public class IotHubMessageProvider implements MessageProvider {
-    private static final Logger LOG = LoggerFactory.getLogger(IotHubMessageProvider.class);
-
     @Override
     public HostMessageFacade getHostFacade(JsonObject config) {
         String deviceConnection = config.get("deviceConnection");
