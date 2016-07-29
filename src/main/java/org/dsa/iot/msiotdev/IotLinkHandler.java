@@ -8,10 +8,12 @@ import org.dsa.iot.dslink.node.Permission;
 import org.dsa.iot.dslink.node.actions.Action;
 import org.dsa.iot.dslink.node.actions.Parameter;
 import org.dsa.iot.dslink.node.value.ValueType;
+import org.dsa.iot.dslink.util.json.JsonObject;
 import org.dsa.iot.msiotdev.client.CreateClientAction;
 import org.dsa.iot.msiotdev.client.IotClientController;
 import org.dsa.iot.msiotdev.client.RemoveClientAction;
 import org.dsa.iot.msiotdev.host.*;
+import org.dsa.iot.msiotdev.providers.iothub.IotHubMessageProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -151,7 +153,13 @@ public class IotLinkHandler extends DSLinkHandler {
                     .build();
         }
 
-        IotHostController controller = new IotHostController(this, node);
+        JsonObject config = new JsonObject();
+
+        if (node.getRoConfig("msiot_device_conn") != null) {
+            config.put("deviceConnection", node.getRoConfig("msiot_device_conn").getString());
+        }
+
+        IotHostController controller = new IotHostController(this, node, new IotHubMessageProvider(), config);
         try {
             controller.init();
         } catch (Exception e) {
@@ -171,7 +179,21 @@ public class IotLinkHandler extends DSLinkHandler {
                     .build();
         }
 
-        IotClientController controller = new IotClientController(this, node);
+        JsonObject config = new JsonObject();
+
+        if (node.getRoConfig("msiot_conn") != null) {
+            config.put("connection", node.getRoConfig("msiot_conn").getString());
+        }
+
+        if (node.getRoConfig("msiot_event_conn") != null) {
+            config.put("eventConnection", node.getRoConfig("msiot_event_conn").getString());
+        }
+
+        if (node.getRoConfig("msiot_device") != null) {
+            config.put("deviceId", node.getRoConfig("msiot_device").getString());
+        }
+
+        IotClientController controller = new IotClientController(this, node, new IotHubMessageProvider(), config);
         try {
             controller.init();
         } catch (Exception e) {

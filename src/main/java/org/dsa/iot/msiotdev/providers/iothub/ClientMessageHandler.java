@@ -1,8 +1,7 @@
-package org.dsa.iot.msiotdev.client;
+package org.dsa.iot.msiotdev.providers.iothub;
 
 import com.microsoft.azure.eventhubs.EventData;
 import com.microsoft.azure.eventhubs.PartitionReceiver;
-import org.dsa.iot.dslink.node.Node;
 import org.dsa.iot.dslink.provider.LoopProvider;
 import org.dsa.iot.dslink.util.json.EncodingFormat;
 import org.dsa.iot.dslink.util.json.JsonObject;
@@ -12,21 +11,22 @@ import org.slf4j.LoggerFactory;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
 
 public class ClientMessageHandler {
     private static final Logger LOG = LoggerFactory.getLogger(ClientMessageHandler.class);
 
-    private IotClientController controller;
+    private IotHubClientMessageFacade facade;
     private PartitionReceiver receiver;
     private boolean canceled = false;
 
-    public ClientMessageHandler(IotClientController controller, PartitionReceiver receiver) {
-        this.controller = controller;
+    public ClientMessageHandler(IotHubClientMessageFacade facade, PartitionReceiver receiver) {
+        this.facade = facade;
         this.receiver = receiver;
     }
 
     public void receive() {
-        // LOG.debug("Attempting to fetch events from partition " + receiver.getPartitionId() + ".");
+         LOG.debug("Attempting to fetch events from partition " + receiver.getPartitionId() + ".");
 
         try {
             Iterable<EventData> datas = receiver.receive(4).get(
@@ -62,20 +62,11 @@ public class ClientMessageHandler {
                 LOG.debug("Received event " + new String(object.encodePrettily(EncodingFormat.JSON)) + " from hub.");
             }
 
-            String type = object.get("type");
-            String path = object.get("path");
+            if (facade != null) {
+                Consumer<JsonObject> consumer = facade.getConsumer();
 
-            if (path != null) {
-                Node node = controller.resolveNode(path);
-
-                if (node != null) {
-                    IotNodeController nodeController = node.getMetaData();
-
-                    if (nodeController != null) {
-                        nodeController.deliver(type, object);
-                    }
-                } else {
-                    LOG.debug("Failed to find node at " + path);
+                if (consumer != null) {
+                    consumer.accept(object);
                 }
             }
         } catch (Exception e) {

@@ -7,6 +7,8 @@ import org.dsa.iot.dslink.provider.LoopProvider;
 import org.dsa.iot.dslink.util.json.EncodingFormat;
 import org.dsa.iot.dslink.util.json.JsonObject;
 import org.dsa.iot.msiotdev.IotLinkHandler;
+import org.dsa.iot.msiotdev.providers.HostMessageFacade;
+import org.dsa.iot.msiotdev.providers.MessageProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,18 +20,22 @@ public class IotHostController {
     private static final Logger LOG = LoggerFactory.getLogger(IotHostController.class);
 
     private Node node;
-    private DeviceClient deviceClient;
     private HostMessageCallback messageCallback;
     private Map<String, HostSubscription> subscriptions;
     private Map<String, HostLister>  lists;
     private IotLinkHandler handler;
+    private JsonObject config;
+    private HostMessageFacade facade;
+    private MessageProvider provider;
 
-    public IotHostController(final IotLinkHandler handler, final Node node) {
+    public IotHostController(final IotLinkHandler handler, final Node node, final MessageProvider provider, final JsonObject config) {
         this.node = node;
         this.messageCallback = new HostMessageCallback(this);
         this.subscriptions = new HashMap<>();
         this.lists = new HashMap<>();
         this.handler = handler;
+        this.config = config;
+        this.provider = provider;
     }
 
     public Node getNode() {
@@ -38,32 +44,20 @@ public class IotHostController {
 
     public void init() throws Exception {
         LoopProvider.getProvider().schedule(() -> {
-            String deviceConnection = node.getRoConfig("msiot_device_conn").getString();
-
-            try {
-                deviceClient = new DeviceClient(deviceConnection, IotHubClientProtocol.AMQPS);
-                deviceClient.open();
-                deviceClient.setMessageCallback(messageCallback, null);
-            } catch (Exception e) {
-                LOG.error("Failed to initialize host.", e);
+            if (facade == null) {
+                facade = provider.getHostFacade(config);
             }
+
+            facade.handle(messageCallback);
         });
     }
 
     public void emit(JsonObject object) {
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Emitting event " + new String(object.encodePrettily(EncodingFormat.JSON)) + " from device.");
+            LOG.debug("Emitting event " + new String(object.encodePrettily(EncodingFormat.JSON)) + " from host.");
         }
 
-        byte[] bytes = object.encode(EncodingFormat.MESSAGE_PACK);
-        Message msg = new Message(bytes);
-        deviceClient.sendEventAsync(msg, (responseStatus, callbackContext) -> {
-            if (responseStatus != IotHubStatusCode.OK && responseStatus != IotHubStatusCode.OK_EMPTY) {
-                LOG.error("Failed to send event " + new String(object.encodePrettily(EncodingFormat.JSON)) + "to device: " + responseStatus.name());
-            } else {
-                LOG.debug("Sent message to event hub.");
-            }
-        }, null);
+        facade.emit(object);
     }
 
     public Map<String, HostLister> getLists() {
@@ -76,9 +70,9 @@ public class IotHostController {
 
     public void destroy() {
         try {
-            deviceClient.close();
-        } catch (IOException e) {
-            LOG.warn("Failed to destroy device client.", e);
+            facade.destroy();
+        } catch (Exception e) {
+            LOG.warn("Failed to destroy host facade.", e);
         }
 
         for (HostLister lister : lists.values()) {

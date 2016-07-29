@@ -1,94 +1,56 @@
 package org.dsa.iot.msiotdev.client;
 
-import com.microsoft.azure.eventhubs.EventHubClient;
-import com.microsoft.azure.eventhubs.PartitionReceiver;
-import com.microsoft.azure.iot.service.sdk.*;
-import org.dsa.iot.commons.Container;
 import org.dsa.iot.dslink.node.Node;
-import org.dsa.iot.dslink.provider.LoopProvider;
 import org.dsa.iot.dslink.util.json.EncodingFormat;
 import org.dsa.iot.dslink.util.json.JsonObject;
 import org.dsa.iot.msiotdev.IotLinkHandler;
+import org.dsa.iot.msiotdev.providers.ClientMessageFacade;
+import org.dsa.iot.msiotdev.providers.MessageProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 
 @SuppressWarnings("Duplicates")
 public class IotClientController {
     private static final Logger LOG = LoggerFactory.getLogger(IotClientController.class);
 
     private IotLinkHandler handler;
+    private ClientMessageFacade facade;
     private Node node;
-    private ServiceClient serviceClient;
-    private EventHubClient eventHubClient;
-    private String deviceId;
-    private List<ClientMessageHandler> messageHandlers;
-    private FeedbackReceiver feedbackReceiver;
+    private JsonObject config;
+    private MessageProvider provider;
 
-    public IotClientController(IotLinkHandler handler, Node node) {
+    public IotClientController(IotLinkHandler handler, Node node, MessageProvider provider, JsonObject config) {
         this.handler = handler;
         this.node = node;
+        this.config = config;
+        this.provider = provider;
     }
 
     public void init() {
-        if (messageHandlers != null && !messageHandlers.isEmpty()) {
-            for (ClientMessageHandler handler : messageHandlers) {
-                handler.disable();
-            }
-            messageHandlers.clear();
+        if (facade == null) {
+            facade = provider.getClientFacade(config);
         }
 
-        messageHandlers = new ArrayList<>();
+        facade.handle(object -> {
+            String type = object.get("type");
+            String path = object.get("path");
+
+            if (path != null) {
+                Node node = resolveNode(path);
+
+                if (node != null) {
+                    IotNodeController nodeController = node.getMetaData();
+
+                    if (nodeController != null) {
+                        nodeController.deliver(type, object);
+                    }
+                } else {
+                    LOG.debug("Failed to find node at " + path);
+                }
+            }
+        });
 
         try {
-            deviceId = node.getRoConfig("msiot_device").getString();
-            String connectionString = node.getRoConfig("msiot_conn").getString();
-            String eventHubString = node.getRoConfig("msiot_event_conn").getString();
-            serviceClient = ServiceClient.createFromConnectionString(connectionString, IotHubServiceClientProtocol.AMQPS);
-            serviceClient.open();
-            feedbackReceiver = serviceClient.getFeedbackReceiver(deviceId);
-            feedbackReceiver.open();
-
-            final Container<Runnable> task = new Container<>();
-            task.setValue(() -> {
-                if (feedbackReceiver == null) {
-                    return;
-                }
-
-                try {
-                    feedbackReceiver.receive(2000);
-//                    feedbackReceiver.close();
-//                    feedbackReceiver = serviceClient.getFeedbackReceiver(deviceId);
-//                    feedbackReceiver.open();
-                } catch (IOException | InterruptedException e) {
-                    e.printStackTrace();
-                }
-
-                LoopProvider.getProvider().schedule(task.getValue());
-            });
-
-            LoopProvider.getProvider().schedule(task.getValue());
-
-            eventHubClient = EventHubClient.createFromConnectionStringSync(eventHubString);
-
-            for (int i = 0; i < 4; i++) {
-                PartitionReceiver receiver = eventHubClient.createReceiverSync(
-                        EventHubClient.DEFAULT_CONSUMER_GROUP_NAME,
-                        String.valueOf(i),
-                        Instant.now()
-                );
-
-                receiver.setReceiveTimeout(Duration.ofSeconds(1));
-                ClientMessageHandler handler = new ClientMessageHandler(IotClientController.this, receiver);
-                messageHandlers.add(handler);
-                handler.schedule();
-            }
-
             IotClientFakeNode brokerNode = new IotClientFakeNode(
                     "broker",
                     node,
@@ -105,32 +67,11 @@ public class IotClientController {
         } catch (Exception e) {
             LOG.error("Failed to initialize client controller.", e);
         }
-
-//        LoopProvider.getProvider().schedule(() -> {
-//
-//        });
     }
 
     public void destroy() {
-        try {
-            feedbackReceiver.close();
-            feedbackReceiver = null;
-        } catch (Exception e) {
-            LOG.warn("Failed to destroy feedback receiver.", e);
-        }
-
-        try {
-            eventHubClient.close();
-            eventHubClient = null;
-        } catch (Exception e) {
-            LOG.warn("Failed to destroy event hub client.", e);
-        }
-
-        try {
-            serviceClient.close();
-            serviceClient = null;
-        } catch (Exception e) {
-            LOG.warn("Failed to destroy service client.", e);
+        if (facade != null) {
+            facade.destroy();
         }
     }
 
@@ -167,23 +108,11 @@ public class IotClientController {
         return current;
     }
 
-    public EventHubClient getEventHubClient() {
-        return eventHubClient;
-    }
-
     public void emit(JsonObject object) {
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Sending " + new String(object.encodePrettily(EncodingFormat.JSON)) + " to device.");
+            LOG.debug("Sending " + new String(object.encodePrettily(EncodingFormat.JSON)) + " to host.");
         }
 
-        Message msg = new Message(object.encode(EncodingFormat.MESSAGE_PACK));
-        msg.setDeliveryAcknowledgement(DeliveryAcknowledgement.Full);
-        msg.setCorrelationId(java.util.UUID.randomUUID().toString());
-        msg.setUserId(java.util.UUID.randomUUID().toString());
-        try {
-            serviceClient.send(deviceId, msg);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        facade.emit(object);
     }
 }
