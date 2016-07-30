@@ -2,6 +2,9 @@ package org.dsa.iot.msiotdev.client;
 
 import org.dsa.iot.dslink.node.Node;
 import org.dsa.iot.dslink.node.NodeBuilder;
+import org.dsa.iot.dslink.util.json.EncodingFormat;
+import org.dsa.iot.dslink.util.json.JsonArray;
+import org.dsa.iot.dslink.util.json.JsonObject;
 
 import java.util.ArrayList;
 import java.util.List;

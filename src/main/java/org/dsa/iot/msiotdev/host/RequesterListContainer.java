@@ -54,9 +54,13 @@ public class RequesterListContainer {
             this.path = path;
             this.handlers = new ArrayList<>();
             this.internalHandler = event -> {
-                lastEvent = event;
-                for (Handler<ListResponse> handler : handlers) {
-                    handler.handle(event);
+                try {
+                    lastEvent = event;
+                    for (Handler<ListResponse> handler : handlers) {
+                        handler.handle(event);
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
             };
         }

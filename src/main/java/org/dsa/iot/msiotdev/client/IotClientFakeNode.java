@@ -3,11 +3,15 @@ package org.dsa.iot.msiotdev.client;
 import org.dsa.iot.dslink.link.Linkable;
 import org.dsa.iot.dslink.node.Node;
 import org.dsa.iot.dslink.node.NodeBuilder;
-import org.dsa.iot.dslink.node.SubscriptionManager;
 import org.dsa.iot.dslink.node.value.Value;
-import org.dsa.iot.dslink.node.value.ValueType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Map;
 
 public class IotClientFakeNode extends Node {
+    private static final Logger LOG = LoggerFactory.getLogger(IotClientFakeNode.class);
+
     private IotClientController controller;
     private String dsaPath;
 
@@ -19,26 +23,37 @@ public class IotClientFakeNode extends Node {
 
     @Override
     public Node getChild(String name) {
-        Node child = super.getChild(name);
-        if (child == null) {
-            child = createChild(name).getChild();
-            IotNodeController nodeController = new IotNodeController(
-                    controller,
-                    (IotClientFakeNode) child,
-                    ((IotClientFakeNode) child).dsaPath
-            );
+        try {
+            Node child = super.getChild(name);
+            if (child == null) {
+                child = createChild(name).getChild();
+                child = addChild(child);
 
-            nodeController.init();
-            nodeController.loadNow();
+                if (!(child instanceof IotClientFakeNode)) {
+                    removeChild(child);
+                    child = createChild(name).getChild();
+                    addChild(child);
+                }
 
-            addChild(child);
+                IotNodeController nodeController = new IotNodeController(
+                        controller,
+                        (IotClientFakeNode) child,
+                        ((IotClientFakeNode) child).dsaPath
+                );
+
+                nodeController.init();
+                nodeController.loadNow();
+            }
+
+            if (child instanceof IotClientFakeNode) {
+                ((IotNodeController) child.getMetaData()).init();
+            }
+
+            return child;
+        } catch (Exception e) {
+            LOG.error("Failed to fetch child '" + name + "' of " + getPath(), e);
+            return null;
         }
-
-        if (child instanceof IotClientFakeNode) {
-            ((IotNodeController) child.getMetaData()).init();
-        }
-
-        return child;
     }
 
     @Override
@@ -105,6 +120,18 @@ public class IotClientFakeNode extends Node {
     @Override
     public void clearChildren() {
         super.clearChildren();
+    }
+
+    @Override
+    public Map<String, Value> clearAttributes() {
+        LOG.info("Clear attributes for " + dsaPath);
+        return super.clearAttributes();
+    }
+
+    @Override
+    public Map<String, Value> clearConfigs() {
+        LOG.info("Clear configs for " + dsaPath);
+        return super.clearConfigs();
     }
 
     @Override

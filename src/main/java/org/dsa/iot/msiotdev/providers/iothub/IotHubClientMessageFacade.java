@@ -6,14 +6,13 @@ import com.microsoft.azure.iot.service.sdk.DeliveryAcknowledgement;
 import com.microsoft.azure.iot.service.sdk.FeedbackReceiver;
 import com.microsoft.azure.iot.service.sdk.Message;
 import com.microsoft.azure.iot.service.sdk.ServiceClient;
-import org.dsa.iot.commons.Container;
-import org.dsa.iot.dslink.provider.LoopProvider;
 import org.dsa.iot.dslink.util.json.EncodingFormat;
 import org.dsa.iot.dslink.util.json.JsonObject;
 import org.dsa.iot.msiotdev.providers.ClientMessageFacade;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -38,12 +37,6 @@ public class IotHubClientMessageFacade implements ClientMessageFacade {
         this.messageHandlers = new ArrayList<>();
 
         try {
-            feedbackReceiver.open();
-        } catch (Exception e) {
-            LOG.error("Failed to open feedback receiver.", e);
-        }
-
-        try {
             for (int i = 0; i < 4; i++) {
                 PartitionReceiver receiver = eventHubClient.createReceiverSync(
                         EventHubClient.DEFAULT_CONSUMER_GROUP_NAME,
@@ -60,31 +53,24 @@ public class IotHubClientMessageFacade implements ClientMessageFacade {
             LOG.warn("Failed to setup partition receivers.", e);
         }
 
-        final Container<Runnable> task = new Container<>();
-        task.setValue(() -> {
-            if (feedbackReceiver == null) {
-                return;
-            }
-
-            try {
-                feedbackReceiver.receive();
-            } catch (Exception e) {
-                LOG.warn("Failed to handle feedback receive.", e);
-            }
-
-            LoopProvider.getProvider().schedule(task.getValue());
-        });
-
-        LoopProvider.getProvider().schedule(task.getValue());
+        try {
+            feedbackReceiver.open();
+        } catch (Exception e) {
+            LOG.error("Failed to open feedback receiver.", e);
+        }
     }
 
     @Override
     public void emit(JsonObject object) {
         Message msg = new Message(object.encode(EncodingFormat.MESSAGE_PACK));
-        msg.setDeliveryAcknowledgement(DeliveryAcknowledgement.Full);
+        msg.setDeliveryAcknowledgement(DeliveryAcknowledgement.None);
         msg.setCorrelationId(java.util.UUID.randomUUID().toString());
         msg.setUserId(java.util.UUID.randomUUID().toString());
-        serviceClient.sendAsync(deviceId, msg);
+        try {
+            serviceClient.send(deviceId, msg);
+        } catch (IOException e) {
+            LOG.warn("Failed to send message " + new String(object.encode(EncodingFormat.JSON)) + " to the host.");
+        }
     }
 
     @Override

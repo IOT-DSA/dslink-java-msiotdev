@@ -10,7 +10,6 @@ import org.dsa.iot.dslink.node.value.ValuePair;
 import org.dsa.iot.dslink.node.value.ValueType;
 import org.dsa.iot.dslink.node.value.ValueUtils;
 import org.dsa.iot.dslink.util.handler.Handler;
-import org.dsa.iot.dslink.util.json.EncodingFormat;
 import org.dsa.iot.dslink.util.json.JsonArray;
 import org.dsa.iot.dslink.util.json.JsonObject;
 import org.slf4j.Logger;
@@ -54,6 +53,13 @@ public class IotNodeController {
             public void handle(Node event) {
                 listHandles++;
                 checkListHandles();
+            }
+        });
+
+        node.getListener().setNodeRemovedHandler(new Handler<Node>() {
+            @Override
+            public void handle(Node event) {
+                LOG.info(dsaPath + " was removed.");
             }
         });
 
@@ -113,7 +119,9 @@ public class IotNodeController {
         }
     }
 
-    public void updateListData(JsonArray listArray, boolean isState, JsonObject root) {
+    public void updateListData(JsonArray listArray, boolean isState) {
+        isFirstUpdate = false;
+
         Set<String> toRemove = null;
 
         if (isState) {
@@ -219,15 +227,35 @@ public class IotNodeController {
                     IotClientFakeNode child = node.getCachedChild(key);
 
                     if (child == null) {
-                        NodeBuilder builder = node.createChild(key);
+//                        NodeBuilder builder = node.createChild(key);
+//                        if (mvalue instanceof JsonObject) {
+//                            JsonObject co = (JsonObject) mvalue;
+//                            for (Map.Entry<String, Object> entry : co) {
+//                                applyCreatedAttribute(builder, entry.getKey(), entry.getValue());
+//                            }
+//                        }
+//                        builder.setSerializable(false);
+//                        childQueue.add(builder);
+
+                        child = (IotClientFakeNode) node.createChild(key).build();
+                        if (child.getMetaData() == null) {
+                            String childNodePath = node.getDsaPath();
+                            if (!childNodePath.equals("/")) {
+                                childNodePath += "/";
+
+                            }
+                            childNodePath += key;
+                            IotNodeController nodeController = new IotNodeController(controller, child, childNodePath);
+                            nodeController.init();
+                            child.setMetaData(nodeController);
+                        }
+
                         if (mvalue instanceof JsonObject) {
                             JsonObject co = (JsonObject) mvalue;
                             for (Map.Entry<String, Object> entry : co) {
-                                applyCreatedAttribute(builder, entry.getKey(), entry.getValue());
+                                applyAttribute(child, entry.getKey(), entry.getValue(), true);
                             }
                         }
-                        builder.setSerializable(false);
-                        childQueue.add(builder);
                     } else {
                         if (mvalue instanceof JsonObject) {
                             JsonObject co = (JsonObject) mvalue;
@@ -257,29 +285,29 @@ public class IotNodeController {
                     }
                 }
             }
-
-            if (toRemove != null) {
-                for (String key : toRemove) {
-                    LOG.debug("Differential Remove: " + key);
-                    if (key.equals("$name")) {
-                        node.setDisplayName(null);
-                    } else if (key.equals("$type")) {
-                        node.setValueType(null);
-                    } else if (key.equals("$hidden")) {
-                        node.setHidden(false);
-                    } else if (key.startsWith("$")) {
-                        node.removeConfig(key.substring(1));
-                    } else if (key.startsWith("@")) {
-                        node.removeAttribute(key.substring(1));
-                    } else {
-                        node.removeChild(key);
-                    }
-                }
-            }
         }
 
         if (childQueue.size() > 0) {
             IotNodeBuilders.applyMultiChildBuilders(node, childQueue);
+        }
+
+        if (toRemove != null) {
+            for (String key : toRemove) {
+                LOG.info("Differential Remove: " + key);
+                if (key.equals("$name")) {
+                    node.setDisplayName(null);
+                } else if (key.equals("$type")) {
+                    node.setValueType(null);
+                } else if (key.equals("$hidden")) {
+                    node.setHidden(false);
+                } else if (key.startsWith("$")) {
+                    node.removeConfig(key.substring(1));
+                } else if (key.startsWith("@")) {
+                    node.removeAttribute(key.substring(1));
+                } else {
+                    node.removeChild(key);
+                }
+            }
         }
 
         checkListHandles();
@@ -374,7 +402,7 @@ public class IotNodeController {
     public void updateValueData(JsonArray valueArray) {
         Value val = ValueUtils.toValue(valueArray.get(0), valueArray.get(1));
 
-        if (val != null && !val.getType().getRawName().equals(node.getValueType().getRawName())) {
+        if (val != null && (node.getValueType() == null || !val.getType().getRawName().equals(node.getValueType().getRawName()))) {
             node.setValueType(val.getType());
         }
 
@@ -478,10 +506,12 @@ public class IotNodeController {
         }
     }
 
+    private boolean isFirstUpdate = true;
+
     public void deliver(String type, JsonObject object) {
         if ("list-state".equals(type) || "list".equals(type)) {
             JsonArray array = object.get("state");
-            updateListData(array, "list-state".equals(type), object);
+            updateListData(array, "list-state".equals(type) || isFirstUpdate);
         } else if ("subscribe-state".equals(type) || "subscribe".equals(type)) {
             JsonArray array =  new JsonArray();
             array.add(object.get("value"));
