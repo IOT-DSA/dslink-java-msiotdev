@@ -2,7 +2,6 @@ package org.dsa.iot.msiotdev.host;
 
 import org.dsa.iot.dslink.DSLink;
 import org.dsa.iot.dslink.methods.requests.ListRequest;
-import org.dsa.iot.dslink.methods.responses.CloseResponse;
 import org.dsa.iot.dslink.methods.responses.ListResponse;
 import org.dsa.iot.dslink.util.handler.Handler;
 
@@ -56,8 +55,10 @@ public class RequesterListContainer {
             this.internalHandler = event -> {
                 try {
                     lastEvent = event;
-                    for (Handler<ListResponse> handler : handlers) {
-                        handler.handle(event);
+                    synchronized (handlers) {
+                        for (Handler<ListResponse> handler : handlers) {
+                            handler.handle(event);
+                        }
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -66,9 +67,12 @@ public class RequesterListContainer {
         }
 
         public void addHandler(final Handler<ListResponse> handler) {
-            if (!handlers.contains(handler)) {
-                handlers.add(handler);
+            synchronized (handlers) {
+                if (!handlers.contains(handler)) {
+                    handlers.add(handler);
+                }
             }
+
             check();
 
             if (lastEvent != null) {
@@ -77,7 +81,10 @@ public class RequesterListContainer {
         }
 
         public void removeHandler(Handler<ListResponse> handler) {
-            handlers.remove(handler);
+            synchronized (handlers) {
+                handlers.remove(handler);
+            }
+
             check();
         }
 

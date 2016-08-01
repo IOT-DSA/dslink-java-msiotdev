@@ -54,16 +54,22 @@ public class RequesterSubscribeContainer {
             this.handlers = new ArrayList<>();
             this.internalHandler = event -> {
                 lastValue = event;
-                for (Handler<SubscriptionValue> handler : handlers) {
-                    handler.handle(event);
+
+                synchronized (handlers) {
+                    for (Handler<SubscriptionValue> handler : handlers) {
+                        handler.handle(event);
+                    }
                 }
             };
         }
 
         public void addHandler(final Handler<SubscriptionValue> handler) {
-            if (!handlers.contains(handler)) {
-                handlers.add(handler);
+            synchronized (handlers) {
+                if (!handlers.contains(handler)) {
+                    handlers.add(handler);
+                }
             }
+
             check();
 
             if (lastValue != null) {
@@ -72,7 +78,10 @@ public class RequesterSubscribeContainer {
         }
 
         public void removeHandler(Handler<SubscriptionValue> handler) {
-            handlers.remove(handler);
+            synchronized (handlers) {
+                handlers.remove(handler);
+            }
+
             check();
         }
 

@@ -13,7 +13,9 @@ import org.dsa.iot.msiotdev.client.CreateClientAction;
 import org.dsa.iot.msiotdev.client.IotClientController;
 import org.dsa.iot.msiotdev.client.RemoveClientAction;
 import org.dsa.iot.msiotdev.host.*;
+import org.dsa.iot.msiotdev.providers.MessageProvider;
 import org.dsa.iot.msiotdev.providers.iothub.IotHubMessageProvider;
+import org.dsa.iot.msiotdev.providers.servicebus.ServiceBusMessageProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -159,7 +161,27 @@ public class IotLinkHandler extends DSLinkHandler {
             config.put("deviceConnection", node.getRoConfig("msiot_device_conn").getString());
         }
 
-        IotHostController controller = new IotHostController(this, node, new IotHubMessageProvider(), config);
+        if (node.getRoConfig("msiot_conn") != null) {
+            config.put("connection", node.getRoConfig("msiot_conn").getString());
+        }
+
+        if (node.getRoConfig("msiot_device") != null) {
+            config.put("deviceId", node.getRoConfig("msiot_device").getString());
+        }
+
+        if (node.getRoConfig("msiot_profile") != null) {
+            config.put("profile", node.getRoConfig("msiot_profile").getString());
+        }
+
+        MessageProvider provider;
+
+        if (config.contains("profile")) {
+            provider = new ServiceBusMessageProvider();
+        } else {
+            provider = new IotHubMessageProvider();
+        }
+
+        IotHostController controller = new IotHostController(this, node, provider, config);
         try {
             controller.init();
         } catch (Exception e) {
@@ -193,7 +215,19 @@ public class IotLinkHandler extends DSLinkHandler {
             config.put("deviceId", node.getRoConfig("msiot_device").getString());
         }
 
-        IotClientController controller = new IotClientController(this, node, new IotHubMessageProvider(), config);
+        if (node.getRoConfig("msiot_profile") != null) {
+            config.put("profile", node.getRoConfig("msiot_profile").getString());
+        }
+
+        MessageProvider provider;
+
+        if (config.contains("profile")) {
+            provider = new ServiceBusMessageProvider();
+        } else {
+            provider = new IotHubMessageProvider();
+        }
+
+        IotClientController controller = new IotClientController(this, node, provider, config);
         try {
             controller.init();
         } catch (Exception e) {
