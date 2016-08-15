@@ -4,6 +4,7 @@ import org.dsa.iot.dslink.link.Linkable;
 import org.dsa.iot.dslink.node.Node;
 import org.dsa.iot.dslink.node.NodeBuilder;
 import org.dsa.iot.dslink.node.value.Value;
+import org.dsa.iot.dslink.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,33 +20,31 @@ public class IotClientFakeNode extends Node {
         super(name, parent, link);
         this.controller = controller;
         this.dsaPath = dsaPath;
+
+        setSerializable(false);
+        setProfile("node");
     }
 
     @Override
     public Node getChild(String name) {
         try {
-            Node child = super.getChild(name);
+            IotClientFakeNode child = getCachedChild(name);
+
             if (child == null) {
-                child = createChild(name).getChild();
-                child = addChild(child);
+                child = (IotClientFakeNode) createChild(name).build();
+            }
 
-                if (!(child instanceof IotClientFakeNode)) {
-                    removeChild(child);
-                    child = createChild(name).getChild();
-                    addChild(child);
-                }
-
+            if (child.getMetaData() == null) {
                 IotNodeController nodeController = new IotNodeController(
                         controller,
-                        (IotClientFakeNode) child,
-                        ((IotClientFakeNode) child).dsaPath
+                        child,
+                        child.dsaPath
                 );
 
                 nodeController.init();
                 nodeController.loadNow();
-            }
-
-            if (child instanceof IotClientFakeNode) {
+                child.setMetaData(nodeController);
+            } else {
                 ((IotNodeController) child.getMetaData()).init();
             }
 
@@ -58,7 +57,14 @@ public class IotClientFakeNode extends Node {
 
     @Override
     public boolean hasChild(String name) {
-        return true;
+        IotClientFakeNode node = getCachedChild(name);
+
+        if (node == null) {
+            Objects.getDaemonThreadPool().execute(() -> getChild(name));
+            return false;
+        } else {
+            return true;
+        }
     }
 
     @Override
@@ -71,9 +77,6 @@ public class IotClientFakeNode extends Node {
                 (dsaPath.equals("/") ? "" : dsaPath) + "/" + name
         ));
 
-        if (profile != null) {
-            b.setProfile(profile);
-        }
         return b;
     }
 
@@ -136,6 +139,10 @@ public class IotClientFakeNode extends Node {
 
     @Override
     public Node addChild(Node node) {
-        return super.addChild(node);
+        if (getCachedChild(node.getName()) == null) {
+            return super.addChild(node);
+        } else {
+            return getCachedChild(node.getName());
+        }
     }
 }

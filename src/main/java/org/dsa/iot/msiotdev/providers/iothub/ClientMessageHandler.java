@@ -3,6 +3,7 @@ package org.dsa.iot.msiotdev.providers.iothub;
 import com.microsoft.azure.eventhubs.EventData;
 import com.microsoft.azure.eventhubs.PartitionReceiver;
 import org.dsa.iot.dslink.provider.LoopProvider;
+import org.dsa.iot.dslink.util.Objects;
 import org.dsa.iot.dslink.util.json.EncodingFormat;
 import org.dsa.iot.dslink.util.json.JsonObject;
 import org.slf4j.Logger;
@@ -29,10 +30,11 @@ public class ClientMessageHandler {
          LOG.debug("Attempting to fetch events from partition " + receiver.getPartitionId() + ".");
 
         try {
-            Iterable<EventData> datas = receiver.receive(4).get(
+            Iterable<EventData> datas = receiver.receive(2).get(
                     1,
                     TimeUnit.SECONDS
             );
+
             if (datas != null) {
                 for (EventData data : datas) {
                     handleEvent(data);
@@ -55,23 +57,25 @@ public class ClientMessageHandler {
     }
 
     public void handleEvent(EventData data) {
-        try {
-            JsonObject object = new JsonObject(EncodingFormat.MESSAGE_PACK, data.getBody());
+        LoopProvider.getProvider().schedule(() -> {
+            try {
+                JsonObject object = new JsonObject(EncodingFormat.MESSAGE_PACK, data.getBody());
 
-            if (LOG.isDebugEnabled()) {
-                LOG.debug("Received event " + new String(object.encodePrettily(EncodingFormat.JSON)) + " from hub.");
-            }
-
-            if (facade != null) {
-                Consumer<JsonObject> consumer = facade.getConsumer();
-
-                if (consumer != null) {
-                    consumer.accept(object);
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Received event " + new String(object.encodePrettily(EncodingFormat.JSON)) + " from hub.");
                 }
+
+                if (facade != null) {
+                    Consumer<JsonObject> consumer = facade.getConsumer();
+
+                    if (consumer != null) {
+                        consumer.accept(object);
+                    }
+                }
+            } catch (Exception e) {
+                LOG.error("Failed to handle client event.", e);
             }
-        } catch (Exception e) {
-            LOG.error("Failed to handle client event.", e);
-        }
+        });
     }
 
     public void disable() {

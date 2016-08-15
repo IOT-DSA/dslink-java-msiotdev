@@ -87,22 +87,32 @@ public class HostMessageCallback implements Consumer<JsonObject> {
 
             Map<String, HostLister> subs = controller.getLists();
             HostLister sub = subs.get(path);
-            if (sub != null) {
-                JsonObject state = sub.getCurrentState();
-                if (state != null) {
-                    sub.getController().emit(state);
-                }
+
+            if (sub == null) {
+                LOG.debug("Creating lister for " + path);
+                sub = new HostLister(controller, path);
+                subs.put(path, sub);
+            }
+
+            JsonObject state = sub.getCurrentState();
+            if (state != null) {
+                sub.getController().emit(state);
             }
         } else if ("get-subscribe-state".equals(method)) {
             String path = object.get("path");
 
             Map<String, HostSubscription> subs = controller.getSubscriptions();
             HostSubscription sub = subs.get(path);
-            if (sub != null) {
-                JsonObject state = sub.getCurrentState();
-                if (state != null) {
-                    sub.getController().emit(state);
-                }
+
+            if (sub == null) {
+                LOG.debug("Creating subscription for " + path);
+                sub = new HostSubscription(controller, path);
+                subs.put(path, sub);
+            }
+
+            JsonObject state = sub.getCurrentState();
+            if (state != null) {
+                sub.getController().emit(state);
             }
         }
     }

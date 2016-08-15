@@ -8,6 +8,7 @@ import org.dsa.iot.dslink.node.Permission;
 import org.dsa.iot.dslink.node.actions.Action;
 import org.dsa.iot.dslink.node.actions.Parameter;
 import org.dsa.iot.dslink.node.value.ValueType;
+import org.dsa.iot.dslink.util.Objects;
 import org.dsa.iot.dslink.util.json.JsonObject;
 import org.dsa.iot.msiotdev.client.CreateClientAction;
 import org.dsa.iot.msiotdev.client.IotClientController;
@@ -105,6 +106,9 @@ public class IotLinkHandler extends DSLinkHandler {
 
         NodeManager nodeManager = responderLink.getNodeManager();
         Node superRoot = nodeManager.getSuperRoot();
+        Objects.getThreadPool().setMaximumPoolSize(256);
+        Objects.getDaemonThreadPool().setMaximumPoolSize(256);
+        Objects.getDaemonThreadPool().setCorePoolSize(32);
 
         {
             Action action = new Action(Permission.CONFIG, new CreateHostAction(this))

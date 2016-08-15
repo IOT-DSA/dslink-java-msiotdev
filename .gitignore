@@ -8,3 +8,4 @@ nodes.json
 nodes.json.bak
 /*.properties
 /src/main/java/org/dsa/iot/msiotdev/ptest
+cert.crt

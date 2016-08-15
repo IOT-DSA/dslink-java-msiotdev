@@ -28,7 +28,7 @@ dependencies {
     compile 'org.iot-dsa:historian:0.16.0-SNAPSHOT'
     compile 'com.microsoft.azure.iothub-java-client:iothub-java-device-client:1.0.9'
     compile 'com.microsoft.azure.iothub-java-client:iothub-java-service-client:1.0.7'
-    compile 'com.microsoft.azure:azure-servicebus:0.9.3'
+    compile 'com.microsoft.azure:azure-servicebus:0.9.4'
     compile 'com.google.guava:guava:19.0'
     compile 'org.apache.qpid:proton-j:0.13.0'
     compile 'org.bouncycastle:bcpkix-jdk15on:1.47'

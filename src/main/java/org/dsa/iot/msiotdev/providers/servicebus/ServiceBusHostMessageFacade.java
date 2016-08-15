@@ -38,7 +38,7 @@ public class ServiceBusHostMessageFacade implements HostMessageFacade {
                 try {
                     service.createSubscription(inputTopic, info);
                 } catch (Exception e) {
-                    if (!e.getMessage().contains(" already exists")) {
+                    if (!e.getMessage().contains(" already exists") && !e.getMessage().contains("409 Conflict")) {
                         LOG.warn("Failed to create subscription.", e);
                     }
                 }

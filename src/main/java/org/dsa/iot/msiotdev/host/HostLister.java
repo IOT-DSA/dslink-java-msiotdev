@@ -1,12 +1,16 @@
 package org.dsa.iot.msiotdev.host;
 
 import org.dsa.iot.dslink.methods.responses.ListResponse;
-import org.dsa.iot.dslink.node.value.ValueUtils;
 import org.dsa.iot.dslink.util.handler.Handler;
 import org.dsa.iot.dslink.util.json.JsonArray;
 import org.dsa.iot.dslink.util.json.JsonObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class HostLister {
     private static final Logger LOG = LoggerFactory.getLogger(HostLister.class);
@@ -72,6 +76,18 @@ public class HostLister {
         RequesterListContainer container = controller.getHandler().getListContainer();
 
         ListResponse event = container.getCurrentState(path);
+
+        if (event == null) {
+            CompletableFuture<ListResponse> future = new CompletableFuture<>();
+            Handler<ListResponse> handler = future::complete;
+            container.subscribe(path, handler);
+            try {
+                event = future.get(5, TimeUnit.SECONDS);
+            } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                LOG.warn("Timed out trying to get the current list state of " + path + ": Timed out.");
+            }
+            container.unsubscribe(path, handler);
+        }
 
         if (event != null) {
             JsonArray updates = event.getJsonResponse(null).get("updates");

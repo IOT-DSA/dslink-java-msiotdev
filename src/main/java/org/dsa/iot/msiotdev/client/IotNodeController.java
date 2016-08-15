@@ -12,6 +12,7 @@ import org.dsa.iot.dslink.node.value.ValueUtils;
 import org.dsa.iot.dslink.util.handler.Handler;
 import org.dsa.iot.dslink.util.json.JsonArray;
 import org.dsa.iot.dslink.util.json.JsonObject;
+import org.dsa.iot.msiotdev.utils.Values;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -185,15 +186,24 @@ public class IotNodeController {
 
                 //noinspection StatementWithEmptyBody
                 if (key.equals("$is")) {
-                    continue;
+                    // Do Nothing.
                 } else if (key.equals("$type")) {
-                    node.setValueType(ValueType.toValueType(value.getString()));
+                    ValueType type = ValueType.toValueType(value.getString());
+                    if (!type.equals(node.getValueType())) {
+                        node.setValueType(type);
+                    }
                 } else if (key.equals("$name")) {
-                    node.setDisplayName(value.getString());
+                    if (node.getDisplayName() == null || !node.getDisplayName().equals(value.getString())) {
+                        node.setDisplayName(value.getString());
+                    }
+                } else if (key.equals("$hasChildren")) {
+                    node.setHasChildren(node.getHasChildren());
                 } else if (key.equals("$invokable")) {
                     Permission perm = Permission.toEnum(value.getString());
                     Action act = getOrCreateAction(node, perm, false);
-                    act.setPermission(perm);
+                    if (act.getPermission() == null || !act.getPermission().getJsonName().equals(perm.getJsonName())) {
+                        act.setPermission(perm);
+                    }
                 } else if (key.equals("$columns")) {
                     if (mvalue instanceof JsonArray) {
                         JsonArray array = (JsonArray) mvalue;
@@ -211,38 +221,44 @@ public class IotNodeController {
                     }
                 } else if (key.equals("$hidden")) {
                     node.setHidden(value.getBool());
-                } else if (key.equals("$name")) {
-                    node.setDisplayName(value.getString());
                 } else if (key.equals("$result")) {
                     String string = value.getString();
                     Action act = getOrCreateAction(node, Permission.NONE, false);
-                    act.setResultType(ResultType.toEnum(string));
+                    if (act.getResultType() == null || !act.getResultType().getJsonName().equals(string)) {
+                        act.setResultType(ResultType.toEnum(string));
+                    }
                 } else if (key.startsWith("$$")) {
-                    node.setRoConfig(key.substring(2), value);
+                    String cname = key.substring(2);
+                    if (!Values.isEqual(value, node.getRoConfig(cname))) {
+                        node.setRoConfig(cname, value);
+                    }
                 } else if (key.startsWith("$")) {
-                    node.setConfig(key.substring(1), value);
+                    String cname = key.substring(1);
+                    if (!Values.isEqual(value, node.getConfig(cname))) {
+                        node.setConfig(cname, value);
+                    }
                 } else if (key.startsWith("@")) {
-                    node.setAttribute(key.substring(1), value);
+                    String cname = key.substring(1);
+                    if (!Values.isEqual(value, node.getAttribute(cname))) {
+                        node.setAttribute(cname, value);
+                    }
                 } else {
                     IotClientFakeNode child = node.getCachedChild(key);
 
                     if (child == null) {
-//                        NodeBuilder builder = node.createChild(key);
-//                        if (mvalue instanceof JsonObject) {
-//                            JsonObject co = (JsonObject) mvalue;
-//                            for (Map.Entry<String, Object> entry : co) {
-//                                applyCreatedAttribute(builder, entry.getKey(), entry.getValue());
-//                            }
-//                        }
-//                        builder.setSerializable(false);
-//                        childQueue.add(builder);
+                        NodeBuilder builder = node.createChild(key);
+                        if (mvalue instanceof JsonObject) {
+                            JsonObject co = (JsonObject) mvalue;
+                            for (Map.Entry<String, Object> entry : co) {
+                                applyCreatedAttribute(builder, entry.getKey(), entry.getValue());
+                            }
+                        }
 
-                        child = (IotClientFakeNode) node.createChild(key).build();
+                        child = (IotClientFakeNode) builder.build();
                         if (child.getMetaData() == null) {
                             String childNodePath = node.getDsaPath();
                             if (!childNodePath.equals("/")) {
                                 childNodePath += "/";
-
                             }
                             childNodePath += key;
                             IotNodeController nodeController = new IotNodeController(controller, child, childNodePath);
@@ -250,11 +266,8 @@ public class IotNodeController {
                             child.setMetaData(nodeController);
                         }
 
-                        if (mvalue instanceof JsonObject) {
-                            JsonObject co = (JsonObject) mvalue;
-                            for (Map.Entry<String, Object> entry : co) {
-                                applyAttribute(child, entry.getKey(), entry.getValue(), true);
-                            }
+                        if (node.getCachedChild(key) == null) {
+                            node.addChild(child);
                         }
                     } else {
                         if (mvalue instanceof JsonObject) {
@@ -263,6 +276,10 @@ public class IotNodeController {
                                 applyAttribute(child, entry.getKey(), entry.getValue(), true);
                             }
                         }
+                    }
+
+                    if (toRemove != null) {
+                        toRemove.remove(key);
                     }
                 }
             } else if (o instanceof JsonObject) {
@@ -293,7 +310,6 @@ public class IotNodeController {
 
         if (toRemove != null) {
             for (String key : toRemove) {
-                LOG.info("Differential Remove: " + key);
                 if (key.equals("$name")) {
                     node.setDisplayName(null);
                 } else if (key.equals("$type")) {
@@ -336,17 +352,31 @@ public class IotNodeController {
             iterateActionMetaData(act, array, true);
         } else if (key.equals("$writable")) {
             String string = value.getString();
-            n.setWritable(Writable.toEnum(string));
+            if (node.getWritable() == null || !node.getWritable().toJsonName().equals(string)) {
+                node.setWritable(Writable.toEnum(string));
+            }
         } else if (key.equals("$params")) {
-            JsonArray array = (JsonArray) mvalue;
-            Action act = getOrCreateAction(n.getChild(), Permission.NONE, true);
-            iterateActionMetaData(act, array, false);
+            if (mvalue instanceof JsonArray) {
+                JsonArray array = (JsonArray) mvalue;
+                Action act = getOrCreateAction(node, Permission.NONE, false);
+                iterateActionMetaData(act, array, false);
+            }
         } else if (key.equals("$hidden")) {
             n.setHidden(value.getBool());
         } else if (key.equals("$result")) {
             String string = value.getString();
             Action act = getOrCreateAction(n.getChild(), Permission.NONE, true);
             act.setResultType(ResultType.toEnum(string));
+        } else if (key.equals("$$password")) {
+            if (value.getString() != null) {
+                node.setPassword(value.getString().toCharArray());
+            } else {
+                node.setPassword(null);
+            }
+        } else if (key.equals("$hasChildren")) {
+            if (value.getBool() != node.getHasChildren()) {
+                node.setHasChildren(value.getBool());
+            }
         } else if (key.startsWith("$$")) {
             n.setRoConfig(key.substring(2), value);
         } else if (key.startsWith("$")) {
@@ -477,32 +507,46 @@ public class IotNodeController {
     private static void iterateActionMetaData(Action act,
                                               JsonArray array,
                                               boolean isCol) {
+
         ArrayList<Parameter> out = new ArrayList<>();
         for (Object anArray : array) {
             JsonObject data = (JsonObject) anArray;
             String name = data.get("name");
+
+            if (out.stream().anyMatch((c) -> c.getName().equals(name))) {
+                continue;
+            }
+
             String type = data.get("type");
             ValueType valType = ValueType.toValueType(type);
             Parameter param = new Parameter(name, valType);
-            if (isCol) {
-                out.add(param);
-            } else {
-                String editor = data.get("editor");
-                if (editor != null) {
-                    param.setEditorType(EditorType.make(editor));
-                }
-                Object def = data.get("default");
-                if (def != null) {
-                    param.setDefaultValue(ValueUtils.toValue(def));
-                }
-                out.add(param);
+
+            String editor = data.get("editor");
+            if (editor != null) {
+                param.setEditorType(EditorType.make(editor));
             }
+            Object def = data.get("default");
+            if (def != null) {
+                param.setDefaultValue(ValueUtils.toValue(def));
+            }
+            String placeholder = data.get("placeholder");
+            if (placeholder != null) {
+                param.setPlaceHolder(placeholder);
+            }
+            String description = data.get("description");
+            if (description != null) {
+                param.setDescription(description);
+            }
+
+            out.add(param);
         }
 
-        if (isCol) {
-            act.setColumns(out);
-        } else {
-            act.setParams(out);
+        if (!out.isEmpty()) {
+            if (isCol) {
+                act.setColumns(out);
+            } else {
+                act.setParams(out);
+            }
         }
     }
 
