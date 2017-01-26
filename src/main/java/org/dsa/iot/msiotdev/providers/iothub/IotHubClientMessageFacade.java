@@ -37,7 +37,7 @@ public class IotHubClientMessageFacade implements ClientMessageFacade {
         this.messageHandlers = new ArrayList<>();
 
         try {
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < 2; i++) {
                 PartitionReceiver receiver = eventHubClient.createReceiverSync(
                         EventHubClient.DEFAULT_CONSUMER_GROUP_NAME,
                         String.valueOf(i),
