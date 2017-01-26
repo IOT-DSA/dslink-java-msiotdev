@@ -23,9 +23,9 @@ repositories {
 }
 
 dependencies {
-    compile 'org.iot-dsa:dslink:0.16.0-SNAPSHOT'
-    compile 'org.iot-dsa:commons:0.16.0-SNAPSHOT'
-    compile 'org.iot-dsa:historian:0.16.0-SNAPSHOT'
+    compile 'org.iot-dsa:dslink:0.16.0'
+    compile 'org.iot-dsa:commons:0.16.0'
+    compile 'org.iot-dsa:historian:0.16.0'
     compile 'com.microsoft.azure.iothub-java-client:iothub-java-device-client:1.0.9'
     compile 'com.microsoft.azure.iothub-java-client:iothub-java-service-client:1.0.7'
     compile 'com.microsoft.azure:azure-servicebus:0.9.4'
