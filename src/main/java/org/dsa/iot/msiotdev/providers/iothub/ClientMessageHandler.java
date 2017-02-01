@@ -30,8 +30,8 @@ public class ClientMessageHandler {
          LOG.debug("Attempting to fetch events from partition " + receiver.getPartitionId() + ".");
 
         try {
-            Iterable<EventData> datas = receiver.receive(2).get(
-                    1,
+            Iterable<EventData> datas = receiver.receive(1).get(
+                    2,
                     TimeUnit.SECONDS
             );
 

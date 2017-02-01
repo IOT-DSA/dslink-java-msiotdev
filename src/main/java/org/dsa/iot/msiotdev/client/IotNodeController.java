@@ -9,6 +9,7 @@ import org.dsa.iot.dslink.node.value.Value;
 import org.dsa.iot.dslink.node.value.ValuePair;
 import org.dsa.iot.dslink.node.value.ValueType;
 import org.dsa.iot.dslink.node.value.ValueUtils;
+import org.dsa.iot.dslink.provider.LoopProvider;
 import org.dsa.iot.dslink.util.handler.Handler;
 import org.dsa.iot.dslink.util.json.JsonArray;
 import org.dsa.iot.dslink.util.json.JsonObject;
@@ -37,6 +38,8 @@ public class IotNodeController {
 
         node.setSerializable(false);
         node.setMetaData(this);
+
+        LoopProvider.getProvider().schedule(this::init);
     }
 
     private boolean isInitialized = false;
@@ -266,9 +269,7 @@ public class IotNodeController {
                             child.setMetaData(nodeController);
                         }
 
-                        if (node.getCachedChild(key) == null) {
-                            node.addChild(child);
-                        }
+                        node.addChild(child);
                     } else {
                         if (mvalue instanceof JsonObject) {
                             JsonObject co = (JsonObject) mvalue;

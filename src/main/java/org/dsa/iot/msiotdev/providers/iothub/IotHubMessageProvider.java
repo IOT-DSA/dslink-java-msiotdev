@@ -9,16 +9,22 @@ import org.dsa.iot.dslink.util.json.JsonObject;
 import org.dsa.iot.msiotdev.providers.ClientMessageFacade;
 import org.dsa.iot.msiotdev.providers.HostMessageFacade;
 import org.dsa.iot.msiotdev.providers.MessageProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class IotHubMessageProvider implements MessageProvider {
+    private static final Logger LOG = LoggerFactory.getLogger(IotHubMessageProvider.class);
+
+
     @Override
     public HostMessageFacade getHostFacade(JsonObject config) {
         String deviceConnection = config.get("deviceConnection");
 
         DeviceClient deviceClient;
         try {
-            deviceClient = new DeviceClient(deviceConnection, IotHubClientProtocol.AMQPS);
+            deviceClient = new DeviceClient(deviceConnection, IotHubClientProtocol.MQTT);
             deviceClient.open();
+            LOG.info("IoT Hub Device is ready.");
 
             return new IotHubHostMessageFacade(deviceClient);
         } catch (Exception e) {
@@ -36,7 +42,7 @@ public class IotHubMessageProvider implements MessageProvider {
 
             ServiceClient serviceClient = ServiceClient.createFromConnectionString(
                     serviceConnectionString,
-                    IotHubServiceClientProtocol.AMQPS
+                    IotHubServiceClientProtocol.AMQPS_WS
             );
 
             serviceClient.open();

@@ -165,6 +165,10 @@ public class IotLinkHandler extends DSLinkHandler {
             config.put("deviceConnection", node.getRoConfig("msiot_device_conn").getString());
         }
 
+        if (node.getRoConfig("msiot_event_conn") != null) {
+            config.put("eventConnection", node.getRoConfig("msiot_event_conn").getString());
+        }
+
         if (node.getRoConfig("msiot_conn") != null) {
             config.put("connection", node.getRoConfig("msiot_conn").getString());
         }

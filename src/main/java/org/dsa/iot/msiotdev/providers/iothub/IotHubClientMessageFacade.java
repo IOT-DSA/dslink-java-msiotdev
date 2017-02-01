@@ -1,5 +1,6 @@
 package org.dsa.iot.msiotdev.providers.iothub;
 
+import com.microsoft.azure.eventhubs.EventData;
 import com.microsoft.azure.eventhubs.EventHubClient;
 import com.microsoft.azure.eventhubs.PartitionReceiver;
 import com.microsoft.azure.iot.service.sdk.DeliveryAcknowledgement;
@@ -68,7 +69,7 @@ public class IotHubClientMessageFacade implements ClientMessageFacade {
         msg.setUserId(java.util.UUID.randomUUID().toString());
         try {
             serviceClient.send(deviceId, msg);
-        } catch (IOException e) {
+        } catch (Exception e) {
             LOG.warn("Failed to send message " + new String(object.encode(EncodingFormat.JSON)) + " to the host.");
         }
     }
