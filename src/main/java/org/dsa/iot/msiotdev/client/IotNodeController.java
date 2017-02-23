@@ -94,6 +94,9 @@ public class IotNodeController {
         node.getListener().setValueHandler(new Handler<ValuePair>() {
             @Override
             public void handle(ValuePair event) {
+            	if (Writable.WRITE.equals(node.getWritable()) && event.isFromExternalSource()) {
+            		sendValueUpdate(event.getCurrent());
+            	}
             }
         });
     }
@@ -455,6 +458,7 @@ public class IotNodeController {
         JsonObject object = new JsonObject();
         object.put("method", "list");
         object.put("path", dsaPath);
+        //LOG.info(object.toString());
         controller.emit(object);
     }
 
@@ -483,6 +487,14 @@ public class IotNodeController {
         object.put("method", "unsubscribe");
         object.put("path", dsaPath);
         controller.emit(object);
+    }
+    
+    public void sendValueUpdate(Value val) {
+    	JsonObject object = new JsonObject();
+    	object.put("method", "set");
+    	object.put("path", dsaPath);
+    	object.put("value", val);
+    	controller.emit(object);
     }
 
     private Action getOrCreateAction(Node node, Permission perm, boolean isChild) {

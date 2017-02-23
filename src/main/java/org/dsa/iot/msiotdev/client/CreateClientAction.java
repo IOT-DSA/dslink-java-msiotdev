@@ -16,9 +16,10 @@ public class CreateClientAction implements Handler<ActionResult> {
     @Override
     public void handle(ActionResult event) {
         String name = event.getParameter("name").getString();
-        String deviceId = event.getParameter("targetDeviceId").getString();
-        String connectionString = event.getParameter("connection").getString();
+        String deviceConnString = event.getParameter("deviceConnection").getString();
         String eventConnectionString = event.getParameter("eventConnection").getString();
+        String deviceId = event.getParameter("hostDeviceId").getString();
+        int numPartitions = event.getParameter("numberOfPartitions").getNumber().intValue();
 
         String realName = Node.checkAndEncodeName(name);
         Node node = handler
@@ -26,9 +27,10 @@ public class CreateClientAction implements Handler<ActionResult> {
                 .getNodeManager()
                 .createRootNode(realName)
                 .setDisplayName(name)
-                .setRoConfig("msiot_device", new Value(deviceId))
-                .setRoConfig("msiot_conn", new Value(connectionString))
+                .setRoConfig("msiot_device_conn", new Value(deviceConnString))
                 .setRoConfig("msiot_event_conn", new Value(eventConnectionString))
+                .setRoConfig("msiot_partition_count", new Value(numPartitions))
+                .setRoConfig("msiot_device", new Value(deviceId))
                 .setRoConfig("client", new Value(true))
                 .build();
 

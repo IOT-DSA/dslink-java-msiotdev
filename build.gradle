@@ -2,7 +2,7 @@ apply plugin: 'java'
 apply plugin: 'findbugs'
 apply plugin: 'application'
 
-version '0.0.1'
+version '0.1.0'
 
 mainClassName = 'org.dsa.iot.msiotdev.Main'
 sourceCompatibility = 1.8
@@ -23,6 +23,7 @@ repositories {
 }
 
 dependencies {
+	compile fileTree('lib')
     compile 'org.iot-dsa:dslink:0.16.0'
     compile 'org.iot-dsa:commons:0.16.0'
     compile 'org.iot-dsa:historian:0.16.0'
@@ -30,9 +31,8 @@ dependencies {
     compile 'com.microsoft.azure.iothub-java-client:iothub-java-service-client:1.0.11'
     compile 'com.microsoft.azure:azure-servicebus:0.9.4'
     compile 'com.google.guava:guava:19.0'
-    compile 'org.apache.qpid:proton-j:0.13.0'
     compile 'org.bouncycastle:bcpkix-jdk15on:1.47'
-    compile name: 'azure-eventhubs-0.7.6-SNAPSHOT'
+    //compile name: 'azure-eventhubs-0.7.6-SNAPSHOT'
 }
 
 tasks.withType(FindBugs) {

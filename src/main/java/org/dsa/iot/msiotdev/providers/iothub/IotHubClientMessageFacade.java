@@ -1,115 +1,35 @@
 package org.dsa.iot.msiotdev.providers.iothub;
 
-import com.microsoft.azure.eventhubs.EventData;
-import com.microsoft.azure.eventhubs.EventHubClient;
-import com.microsoft.azure.eventhubs.PartitionReceiver;
-import com.microsoft.azure.iot.service.sdk.DeliveryAcknowledgement;
-import com.microsoft.azure.iot.service.sdk.FeedbackReceiver;
-import com.microsoft.azure.iot.service.sdk.Message;
-import com.microsoft.azure.iot.service.sdk.ServiceClient;
-import org.dsa.iot.dslink.util.json.EncodingFormat;
 import org.dsa.iot.dslink.util.json.JsonObject;
 import org.dsa.iot.msiotdev.providers.ClientMessageFacade;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Consumer;
+import com.microsoft.azure.eventhubs.EventHubClient;
+import com.microsoft.azure.iothub.DeviceClient;
+import com.microsoft.azure.iothub.Message;
 
-public class IotHubClientMessageFacade implements ClientMessageFacade {
-    private static final Logger LOG = LoggerFactory.getLogger(IotHubClientMessageFacade.class);
+public class IotHubClientMessageFacade extends IotHubMessageFacade implements ClientMessageFacade {
+	
+	private String hostDeviceId;
+	
+	public IotHubClientMessageFacade(DeviceClient device, EventHubClient eventHubClient, String hostDeviceId, int partitionCount) {
+		super(device, eventHubClient, partitionCount);
+		this.hostDeviceId = hostDeviceId;
+		init();
+	}
+	
+	@Override
+	public void setMessageProperty(Message msg) {
+		msg.setProperty("Destination", hostDeviceId);
+	}
 
-    private FeedbackReceiver feedbackReceiver;
-    private EventHubClient eventHubClient;
-    private ServiceClient serviceClient;
-    private Consumer<JsonObject> consumer;
-    private String deviceId;
-    private List<ClientMessageHandler> messageHandlers;
+	@Override
+	public void tagMessage(JsonObject object) {
+		object.put("_destination", hostDeviceId);
+	}
 
-    public IotHubClientMessageFacade(EventHubClient eventHubClient, ServiceClient serviceClient, String deviceId) {
-        this.deviceId = deviceId;
-        this.feedbackReceiver = serviceClient.getFeedbackReceiver(deviceId);
-        this.eventHubClient = eventHubClient;
-        this.serviceClient = serviceClient;
-        this.messageHandlers = new ArrayList<>();
+	@Override
+	public boolean shouldHandleEvent(JsonObject object) {
+		return hostDeviceId.equals(object.get("_source"));
+	}
 
-        try {
-            for (int i = 0; i < 2; i++) {
-                PartitionReceiver receiver = eventHubClient.createReceiverSync(
-                        EventHubClient.DEFAULT_CONSUMER_GROUP_NAME,
-                        String.valueOf(i),
-                        Instant.now()
-                );
-
-                receiver.setReceiveTimeout(Duration.ofSeconds(1));
-                ClientMessageHandler handler = new ClientMessageHandler(this, receiver);
-                messageHandlers.add(handler);
-                handler.schedule();
-            }
-        } catch (Exception e) {
-            LOG.warn("Failed to setup partition receivers.", e);
-        }
-
-        try {
-            feedbackReceiver.open();
-        } catch (Exception e) {
-            LOG.error("Failed to open feedback receiver.", e);
-        }
-    }
-
-    @Override
-    public void emit(JsonObject object) {
-        Message msg = new Message(object.encode(EncodingFormat.MESSAGE_PACK));
-        msg.setDeliveryAcknowledgement(DeliveryAcknowledgement.None);
-        msg.setCorrelationId(java.util.UUID.randomUUID().toString());
-        msg.setUserId(java.util.UUID.randomUUID().toString());
-        try {
-            serviceClient.send(deviceId, msg);
-        } catch (Exception e) {
-            LOG.warn("Failed to send message " + new String(object.encode(EncodingFormat.JSON)) + " to the host.");
-        }
-    }
-
-    @Override
-    public void handle(Consumer<JsonObject> consumer) {
-        this.consumer = consumer;
-    }
-
-    @Override
-    public void destroy() {
-        for (ClientMessageHandler handler : messageHandlers) {
-            handler.disable();
-        }
-
-        messageHandlers.clear();
-
-        try {
-            feedbackReceiver.close();
-            feedbackReceiver = null;
-        } catch (Exception e) {
-            LOG.warn("Failed to destroy feedback receiver.", e);
-        }
-
-        try {
-            eventHubClient.close();
-            eventHubClient = null;
-        } catch (Exception e) {
-            LOG.warn("Failed to destroy event hub client.", e);
-        }
-
-        try {
-            serviceClient.close();
-            serviceClient = null;
-        } catch (Exception e) {
-            LOG.warn("Failed to destroy service client.", e);
-        }
-    }
-
-    public Consumer<JsonObject> getConsumer() {
-        return consumer;
-    }
 }

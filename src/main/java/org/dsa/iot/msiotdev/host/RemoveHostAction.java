@@ -14,7 +14,7 @@ public class RemoveHostAction implements Handler<ActionResult> {
     @Override
     public void handle(ActionResult event) {
         IotHostController controller = node.getMetaData();
-        controller.destroy();
+        if (controller != null) controller.destroy();
         node.delete();
     }
 }

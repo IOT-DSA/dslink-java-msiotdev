@@ -1,5 +1,10 @@
 package org.dsa.iot.msiotdev.host;
 
+import org.dsa.iot.dslink.methods.requests.SetRequest;
+import org.dsa.iot.dslink.methods.responses.SetResponse;
+import org.dsa.iot.dslink.node.value.Value;
+import org.dsa.iot.dslink.node.value.ValueUtils;
+import org.dsa.iot.dslink.util.handler.Handler;
 import org.dsa.iot.dslink.util.json.EncodingFormat;
 import org.dsa.iot.dslink.util.json.JsonObject;
 import org.slf4j.Logger;
@@ -23,6 +28,7 @@ public class HostMessageCallback implements Consumer<JsonObject> {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Received " + new String(object.encodePrettily(EncodingFormat.JSON)) + " on device.");
         }
+        LOG.info("Received " + new String(object.encodePrettily(EncodingFormat.JSON)) + " on device.");
 
         String method = object.get("method");
 
@@ -114,6 +120,22 @@ public class HostMessageCallback implements Consumer<JsonObject> {
             if (state != null) {
                 sub.getController().emit(state);
             }
+        } else if ("set".equals(method)) {
+        	String path = object.get("path");
+        	Value val = ValueUtils.toValue(object.get("value"));
+        	SetRequest request = new SetRequest(path, val);
+        	controller.getHandler().getRequesterLink().getRequester().set(request, new Handler<SetResponse>() {
+				@Override
+				public void handle(SetResponse event) {
+				}
+        	});
+        	
+        } else if ("test".equals(method)) {
+        	Number num = object.get("number");
+        	JsonObject obj = new JsonObject();
+        	obj.put("type", "test");
+        	obj.put("number", num);
+        	controller.emit(obj);
         }
     }
 }
