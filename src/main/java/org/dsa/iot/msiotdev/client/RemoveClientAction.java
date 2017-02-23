@@ -14,7 +14,7 @@ public class RemoveClientAction implements Handler<ActionResult> {
     @Override
     public void handle(ActionResult event) {
         IotClientController controller = node.getMetaData();
-        controller.destroy();
+        if (controller != null) controller.destroy();
         node.delete();
     }
 }

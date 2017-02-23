@@ -33,6 +33,7 @@ public class IotHostController {
         this.handler = handler;
         this.config = config;
         this.provider = provider;
+        node.setMetaData(this);
     }
 
     public Node getNode() {
@@ -53,6 +54,7 @@ public class IotHostController {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Emitting event " + new String(object.encodePrettily(EncodingFormat.JSON)) + " from host.");
         }
+        LOG.info("Emitting event " + new String(object.encodePrettily(EncodingFormat.JSON)) + " from host.");
 
         facade.emit(object);
     }

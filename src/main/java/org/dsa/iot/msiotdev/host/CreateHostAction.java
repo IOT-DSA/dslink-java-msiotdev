@@ -16,7 +16,9 @@ public class CreateHostAction implements Handler<ActionResult> {
     @Override
     public void handle(ActionResult event) {
         String name = event.getParameter("name").getString();
-        String deviceConnString = event.getParameter("connection").getString();
+        String deviceConnString = event.getParameter("deviceConnection").getString();
+        String eventConnectionString = event.getParameter("eventConnection").getString();
+        int numPartitions = event.getParameter("numberOfPartitions").getNumber().intValue();
 
         String realName = Node.checkAndEncodeName(name);
         Node node = handler
@@ -25,6 +27,8 @@ public class CreateHostAction implements Handler<ActionResult> {
                 .createRootNode(realName)
                 .setDisplayName(name)
                 .setRoConfig("msiot_device_conn", new Value(deviceConnString))
+                .setRoConfig("msiot_event_conn", new Value(eventConnectionString))
+                .setRoConfig("msiot_partition_count", new Value(numPartitions))
                 .setRoConfig("host", new Value(true))
                 .build();
 

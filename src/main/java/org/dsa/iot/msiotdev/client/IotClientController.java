@@ -24,6 +24,7 @@ public class IotClientController {
         this.node = node;
         this.config = config;
         this.provider = provider;
+        node.setMetaData(this);
     }
 
     public void init() {
@@ -112,6 +113,7 @@ public class IotClientController {
         if (LOG.isDebugEnabled()) {
             LOG.debug("Sending " + new String(object.encodePrettily(EncodingFormat.JSON)) + " to host.");
         }
+        LOG.info("Sending " + new String(object.encodePrettily(EncodingFormat.JSON)) + " to host.");
 
         facade.emit(object);
     }

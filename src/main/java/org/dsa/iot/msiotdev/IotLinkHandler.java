@@ -7,16 +7,17 @@ import org.dsa.iot.dslink.node.NodeManager;
 import org.dsa.iot.dslink.node.Permission;
 import org.dsa.iot.dslink.node.actions.Action;
 import org.dsa.iot.dslink.node.actions.Parameter;
+import org.dsa.iot.dslink.node.value.Value;
 import org.dsa.iot.dslink.node.value.ValueType;
 import org.dsa.iot.dslink.util.Objects;
 import org.dsa.iot.dslink.util.json.JsonObject;
 import org.dsa.iot.msiotdev.client.CreateClientAction;
 import org.dsa.iot.msiotdev.client.IotClientController;
 import org.dsa.iot.msiotdev.client.RemoveClientAction;
+import org.dsa.iot.msiotdev.client.SendTestAction;
 import org.dsa.iot.msiotdev.host.*;
 import org.dsa.iot.msiotdev.providers.MessageProvider;
 import org.dsa.iot.msiotdev.providers.iothub.IotHubMessageProvider;
-import org.dsa.iot.msiotdev.providers.servicebus.ServiceBusMessageProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -103,6 +104,7 @@ public class IotLinkHandler extends DSLinkHandler {
         }
 
         hasInitialized = true;
+        LOG.info("doing fullInitialize");
 
         NodeManager nodeManager = responderLink.getNodeManager();
         Node superRoot = nodeManager.getSuperRoot();
@@ -113,8 +115,9 @@ public class IotLinkHandler extends DSLinkHandler {
         {
             Action action = new Action(Permission.CONFIG, new CreateHostAction(this))
                     .addParameter(new Parameter("name", ValueType.STRING).setPlaceHolder("My Host"))
-                    .addParameter(new Parameter("connection", ValueType.STRING).setPlaceHolder("HostName=x;DeviceId=y;SharedAccessKey=z"))
-                    .addParameter(new Parameter("eventConnection", ValueType.STRING).setPlaceHolder("Endpoint=x;SharedAccessKeyName=y;SharedAccessKey=z"));
+                    .addParameter(new Parameter("deviceConnection", ValueType.STRING).setPlaceHolder("HostName=x;DeviceId=y;SharedAccessKey=z"))
+                    .addParameter(new Parameter("eventConnection", ValueType.STRING).setPlaceHolder("Endpoint=x;SharedAccessKeyName=y;SharedAccessKey=z"))
+                    .addParameter(new Parameter("numberOfPartitions", ValueType.NUMBER).setDefaultValue(new Value(2)));
 
             superRoot
                     .createChild("createHostDevice")
@@ -127,8 +130,10 @@ public class IotLinkHandler extends DSLinkHandler {
         {
             Action action = new Action(Permission.CONFIG, new CreateClientAction(this))
                     .addParameter(new Parameter("name", ValueType.STRING).setPlaceHolder("My Client"))
-                    .addParameter(new Parameter("targetDeviceId", ValueType.STRING).setPlaceHolder("my-broker"))
-                    .addParameter(new Parameter("connection", ValueType.STRING).setPlaceHolder("HostName=x;SharedAccessKeyName=y;SharedAccessKey=z"));
+                    .addParameter(new Parameter("deviceConnection", ValueType.STRING).setPlaceHolder("HostName=x;DeviceId=y;SharedAccessKey=z"))
+                    .addParameter(new Parameter("eventConnection", ValueType.STRING).setPlaceHolder("Endpoint=x;SharedAccessKeyName=y;SharedAccessKey=z"))
+                    .addParameter(new Parameter("hostDeviceId", ValueType.STRING))
+                    .addParameter(new Parameter("numberOfPartitions", ValueType.NUMBER).setDefaultValue(new Value(2)));
 
             superRoot
                     .createChild("createClientDevice")
@@ -168,26 +173,14 @@ public class IotLinkHandler extends DSLinkHandler {
         if (node.getRoConfig("msiot_event_conn") != null) {
             config.put("eventConnection", node.getRoConfig("msiot_event_conn").getString());
         }
-
-        if (node.getRoConfig("msiot_conn") != null) {
-            config.put("connection", node.getRoConfig("msiot_conn").getString());
-        }
-
-        if (node.getRoConfig("msiot_device") != null) {
-            config.put("deviceId", node.getRoConfig("msiot_device").getString());
-        }
-
-        if (node.getRoConfig("msiot_profile") != null) {
-            config.put("profile", node.getRoConfig("msiot_profile").getString());
+        
+        if (node.getRoConfig("msiot_partition_count") != null) {
+            config.put("partitionCount", node.getRoConfig("msiot_partition_count").getNumber().intValue());
         }
 
         MessageProvider provider;
 
-        if (config.contains("profile")) {
-            provider = new ServiceBusMessageProvider();
-        } else {
-            provider = new IotHubMessageProvider();
-        }
+        provider = new IotHubMessageProvider();
 
         IotHostController controller = new IotHostController(this, node, provider, config);
         try {
@@ -208,32 +201,38 @@ public class IotLinkHandler extends DSLinkHandler {
                     .setSerializable(false)
                     .build();
         }
+        {
+            Action action = new Action(Permission.CONFIG, new SendTestAction(node));
+
+            node
+                    .createChild("sendMessage")
+                    .setDisplayName("sendMessage")
+                    .setAction(action)
+                    .setSerializable(false)
+                    .build();
+        }
 
         JsonObject config = new JsonObject();
-
-        if (node.getRoConfig("msiot_conn") != null) {
-            config.put("connection", node.getRoConfig("msiot_conn").getString());
+        
+        if (node.getRoConfig("msiot_device_conn") != null) {
+            config.put("deviceConnection", node.getRoConfig("msiot_device_conn").getString());
         }
 
         if (node.getRoConfig("msiot_event_conn") != null) {
             config.put("eventConnection", node.getRoConfig("msiot_event_conn").getString());
         }
-
-        if (node.getRoConfig("msiot_device") != null) {
-            config.put("deviceId", node.getRoConfig("msiot_device").getString());
+        
+        if (node.getRoConfig("msiot_partition_count") != null) {
+            config.put("partitionCount", node.getRoConfig("msiot_partition_count").getNumber().intValue());
         }
 
-        if (node.getRoConfig("msiot_profile") != null) {
-            config.put("profile", node.getRoConfig("msiot_profile").getString());
+        if (node.getRoConfig("msiot_device") != null) {
+            config.put("hostDeviceId", node.getRoConfig("msiot_device").getString());
         }
 
         MessageProvider provider;
 
-        if (config.contains("profile")) {
-            provider = new ServiceBusMessageProvider();
-        } else {
-            provider = new IotHubMessageProvider();
-        }
+        provider = new IotHubMessageProvider();
 
         IotClientController controller = new IotClientController(this, node, provider, config);
         try {
