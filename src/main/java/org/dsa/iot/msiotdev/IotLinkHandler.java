@@ -14,7 +14,6 @@ import org.dsa.iot.dslink.util.json.JsonObject;
 import org.dsa.iot.msiotdev.client.CreateClientAction;
 import org.dsa.iot.msiotdev.client.IotClientController;
 import org.dsa.iot.msiotdev.client.RemoveClientAction;
-import org.dsa.iot.msiotdev.client.SendTestAction;
 import org.dsa.iot.msiotdev.host.*;
 import org.dsa.iot.msiotdev.providers.MessageProvider;
 import org.dsa.iot.msiotdev.providers.iothub.IotHubMessageProvider;
@@ -201,17 +200,7 @@ public class IotLinkHandler extends DSLinkHandler {
                     .setSerializable(false)
                     .build();
         }
-        {
-            Action action = new Action(Permission.CONFIG, new SendTestAction(node));
-
-            node
-                    .createChild("sendMessage")
-                    .setDisplayName("sendMessage")
-                    .setAction(action)
-                    .setSerializable(false)
-                    .build();
-        }
-
+        
         JsonObject config = new JsonObject();
         
         if (node.getRoConfig("msiot_device_conn") != null) {
